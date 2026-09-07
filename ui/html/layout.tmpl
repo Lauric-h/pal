@@ -1,0 +1,200 @@
+{{ define "layout-start" -}}
+<!doctype html>
+<html lang="fr">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Bibliothèque</title>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+	<style>
+		:root {
+			color-scheme: dark;
+			--pal-bg: #0d0d0e;
+			--pal-sidebar: #151516;
+			--pal-card: #1a1a1b;
+			--pal-border: #2c2c2e;
+			--pal-text: #f2f2f3;
+			--pal-muted: #8b8b91;
+			--pal-hover: #222224;
+			--pal-green: #68d391;
+			--pal-purple: #9b8cff;
+			--pal-accent: #f97316;
+			--pal-accent-soft: rgba(249, 115, 22, .12);
+			--pal-accent-glow: rgba(249, 115, 22, .28);
+		}
+		body[data-theme="light"] {
+			color-scheme: light;
+			--pal-bg: #f7f7f8;
+			--pal-sidebar: #ffffff;
+			--pal-card: #ffffff;
+			--pal-border: #dedee2;
+			--pal-text: #18181a;
+			--pal-muted: #77777f;
+			--pal-hover: #eeeeef;
+			--pal-green: #248b58;
+			--pal-purple: #6556c7;
+			--pal-accent: #f97316;
+			--pal-accent-soft: rgba(249, 115, 22, .12);
+			--pal-accent-glow: rgba(249, 115, 22, .22);
+		}
+		* { box-sizing: border-box; }
+		html, body { margin: 0; min-height: 100%; }
+		body { background: var(--pal-bg); color: var(--pal-text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; }
+		a { color: inherit; }
+		.app-shell { display: grid; grid-template-areas: "sidebar main" "sidebar footer"; grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: 1fr auto; min-height: 100vh; }
+		.sidebar { align-self: start; background: var(--pal-sidebar); border-right: 1px solid var(--pal-border); display: flex; flex-direction: column; grid-area: sidebar; height: 100vh; min-height: 100vh; overflow: hidden; padding: 30px 16px 24px; position: sticky; top: 0; }
+		.sidebar-top { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+		.brand { align-items: center; color: var(--pal-accent); display: flex; font-size: 21px; font-weight: 800; gap: 10px; line-height: 1; margin: 0 12px 34px; text-decoration: none; }
+		.brand span { display: block; }
+		.sidebar nav { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+		.sidebar nav ul, .genres-panel ul { list-style: none; margin: 0; padding: 0; }
+		.nav-link, .genre-link { align-items: center; border: 0; border-radius: 8px; color: var(--pal-muted); display: flex; gap: 12px; min-height: 44px; padding: 0 12px; text-decoration: none; transition: color .15s, background .15s, box-shadow .15s; }
+		.nav-link:hover, .genre-link:hover { background: var(--pal-hover); box-shadow: 0 0 16px var(--pal-accent-glow); color: var(--pal-accent); }
+		.nav-link[aria-current="page"], .genre-link[aria-current="page"] { background: var(--pal-accent-soft); box-shadow: 0 0 22px var(--pal-accent-glow); color: var(--pal-accent); }
+		.nav-link:focus-visible, .genre-link:focus-visible, .genres-panel summary:focus-visible, .theme-toggle:focus-visible, .github-link:focus-visible { outline: 2px solid var(--pal-accent); outline-offset: 2px; }
+		.icon { display: block; fill: none; height: 18px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 18px; }
+		.brand .icon { height: 23px; width: 23px; }
+		.github-icon { fill: currentColor; stroke: none; }
+		.nav-icon { align-items: center; display: inline-flex; justify-content: center; width: 18px; }
+		.nav-label, .genre-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.count { color: var(--pal-muted); font-size: 13px; margin-left: auto; }
+		.genres-panel { display: flex; flex: 1 1 auto; flex-direction: column; margin-top: 16px; min-height: 0; overflow: scroll; }
+		.genres-panel ul { padding: 0px 16px; }
+		.genres-panel summary { align-items: center; color: var(--pal-muted); cursor: pointer; display: flex; font-size: 12px; font-weight: 700; gap: 8px; letter-spacing: .12em; margin: 0 12px 8px; padding: 20px 0 0; position: relative; text-transform: uppercase; }
+		.genres-panel summary::marker { color: var(--pal-muted); }
+		.genres-panel summary::before { background: var(--pal-border); content: ""; height: 1px; left: 0; position: absolute; right: 0; top: 0; }
+		.genres-panel summary:hover { color: var(--pal-accent); }
+		.genre-list { flex: 1 1 auto; min-height: 0; overflow: auto; }
+		.genre-list li { border-radius: 30px; }
+		.genre-link { min-height: 34px; padding: 0 10px; }
+		.search-provider, .book-select, .library-filters select { cursor: pointer; }
+		.sidebar-bottom { display: grid; flex-shrink: 0; gap: 6px; margin-top: auto; }
+		.theme-toggle { align-items: center; background: none; border: 0; color: var(--pal-muted); display: flex; font-size: 15px; gap: 12px; margin: 0; padding: 10px 12px; text-align: left; transition: color .15s, filter .15s; }
+		.theme-toggle:hover { color: var(--pal-accent); filter: drop-shadow(0 0 8px var(--pal-accent-glow)); }
+		.github-link { min-height: 38px; }
+		.library-header h1 { color: var(--pal-accent); }
+		.site-footer { align-items: center; border-top: 1px solid var(--pal-border); color: var(--pal-muted); display: flex; font-size: 12px; gap: 8px; grid-area: footer; justify-content: center; padding: 18px 48px; }
+		.site-footer a { color: var(--pal-muted); display: inline-flex; }
+		.site-footer a:hover { color: var(--pal-accent); }
+		main.container { grid-area: main; margin: 0; max-width: none; padding: 42px 48px 72px; width: 100%; }
+		.main-content { margin: 0 auto; max-width: 1180px; }
+		.page-header { margin-bottom: 38px; }
+		.page-header h1 { color: var(--pal-text); font-size: 32px; font-weight: 800; letter-spacing: -.04em; margin: 0 0 24px; }
+		.page-header h1 span { color: var(--pal-muted); font-weight: 500; }
+		.search-form { margin: 0; }
+		.search-form-row { align-items: stretch; display: flex; gap: 12px; }
+		.search-input-wrap { align-items: center; background: var(--pal-card); border: 1px solid var(--pal-border); border-radius: 14px; display: flex; flex: 1 1 auto; min-height: 56px; min-width: 0; padding: 0 16px; }
+		.search-input-wrap:focus-within { border-color: var(--pal-accent); box-shadow: 0 0 0 3px var(--pal-accent-soft), 0 0 24px var(--pal-accent-glow); }
+		.search-input-wrap input, .search-provider, .book-select, .library-filters select { background: transparent; border: 0; box-shadow: none; color: var(--pal-text); margin: 0; }
+		.search-input-wrap input { appearance: none; font-size: 17px; height: 100%; padding: 0; }
+		.search-input-wrap input::placeholder { color: var(--pal-muted); }
+		.search-provider { background: var(--pal-card); border: 1px solid var(--pal-border); border-radius: 14px; flex: 0 0 220px; height: 56px; min-width: 0; padding: 0 16px; width: 220px; }
+		.search-provider:focus, .library-filters select:focus { border-color: var(--pal-accent); box-shadow: 0 0 0 3px var(--pal-accent-soft); outline: none; }
+		.empty-state { align-items: center; color: var(--pal-text); display: flex; flex-direction: column; justify-content: center; min-height: 540px; text-align: center; }
+		.empty-state p { font-size: 19px; line-height: 1.45; margin: 0; max-width: 410px; }
+		.search-results h2 { font-size: 22px; margin: 0 0 18px; }
+		.search-result { align-items: center; background: var(--pal-card); border: 1px solid var(--pal-border); border-radius: 10px; display: flex; gap: 20px; margin-bottom: 12px; padding: 16px 20px; }
+		.search-result img { height: 94px; object-fit: cover; width: 62px; }
+		.search-result h3 { font-size: 18px; margin: 0 0 4px; }
+		.search-result p { color: var(--pal-muted); margin: 0; }
+		.search-result form { margin: 0 0 0 auto; }
+		.search-result button { margin: 0; }
+		.search-result button, .library-filters button { background: var(--pal-accent); border-color: var(--pal-accent); border-radius: 12px; box-shadow: 0 0 18px var(--pal-accent-glow); color: #fff; }
+		.search-result button:hover, .library-filters button:hover { background: #fb923c; border-color: #fb923c; box-shadow: 0 0 26px var(--pal-accent-glow); }
+		.status-section { margin-top: 36px; }
+		.status-heading { align-items: baseline; display: flex; font-size: 17px; gap: 10px; letter-spacing: .08em; margin: 0 0 18px; }
+		.status-heading.in-progress { color: var(--pal-green); }
+		.status-heading.to-read { color: var(--pal-purple); }
+		.status-heading.to-buy { color: #e5a85b; }
+		.status-heading .count { font-size: 16px; font-weight: 500; letter-spacing: 0; }
+		.book-card { background: var(--pal-card); border: 1px solid var(--pal-border); border-radius: 16px; display: grid; gap: 24px; grid-template-columns: 104px minmax(0, 1fr); margin-bottom: 16px; min-height: 210px; padding: 24px; position: relative; }
+		.book-cover { background: var(--pal-hover); border-radius: 6px; height: 152px; object-fit: cover; width: 104px; }
+		.book-cover-empty { align-items: center; color: var(--pal-muted); display: flex; font-size: 36px; justify-content: center; }
+		.book-info { min-width: 0; padding-right: 132px; }
+		.book-info h3 { color: var(--pal-text); font-size: 22px; letter-spacing: -.03em; margin: 4px 0 6px; }
+		.book-author { color: var(--pal-muted); font-size: 17px; margin: 0 0 20px; }
+		.book-fields { display: grid; gap: 12px; max-width: 760px; }
+		.book-field { margin: 0; }
+		.book-select { background-color: transparent; border: 1px solid var(--pal-border); border-radius: 9px; font-size: 17px; min-height: 52px; padding: 0 16px; width: 100%; }
+		.book-select:focus { border-color: var(--pal-accent); box-shadow: 0 0 0 3px var(--pal-accent-soft); }
+		.card-actions { display: flex; gap: 8px; position: absolute; right: 24px; top: 24px; }
+		.card-action { align-items: center; background: transparent; border: 1px solid var(--pal-border); border-radius: 9px; color: var(--pal-muted); display: inline-flex; font-size: 18px; justify-content: center; margin: 0; min-height: 42px; min-width: 42px; padding: 0 10px; }
+		.card-action:hover { border-color: var(--pal-accent); box-shadow: 0 0 14px var(--pal-accent-glow); color: var(--pal-accent); }
+		.next-pal-toggle { font-size: 13px; }
+		.library-filters { align-items: end; background: var(--pal-card); border: 1px solid var(--pal-border); border-radius: 14px; display: flex; gap: 12px; margin-bottom: 32px; padding: 14px 16px; }
+		.library-filters label { color: var(--pal-muted); flex: 1; font-size: 13px; margin: 0; }
+		.library-filters select { border: 1px solid var(--pal-border); border-radius: 10px; color: var(--pal-text); margin-top: 6px; min-height: 42px; padding: 0 12px; width: 100%; }
+		.library-filters button, .library-filters a { flex: 0 0 auto; margin: 0; min-height: 34px; width: auto; }
+		.library-filters button { padding: 6px 14px; }
+		.clear-filters:focus-visible { outline: 2px solid var(--pal-accent); outline-offset: 2px; }
+		.clear-filters { align-items: center; border-radius: 999px; display: inline-flex; font-size: 24px; height: 34px; justify-content: center; line-height: 1; min-width: 34px; padding: 0; }
+		.clear-filters:hover { background: var(--pal-hover); color: var(--pal-accent); }
+		.icon-defs { height: 0; position: absolute; width: 0; }
+		.sr-only { clip: rect(0, 0, 0, 0); clip-path: inset(50%); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
+		[role="alert"] { background: var(--pal-card); border: 1px solid var(--pal-border); border-radius: 10px; padding: 16px; }
+	</style>
+</head>
+<body data-theme="dark">
+	<svg class="icon-defs" aria-hidden="true">
+		<symbol id="icon-book" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 5.5v16M8 7h8M8 11h8"/></symbol>
+		<symbol id="icon-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></symbol>
+		<symbol id="icon-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+		<symbol id="icon-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+		<symbol id="icon-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></symbol>
+		<symbol id="icon-moon" viewBox="0 0 24 24"><path d="M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5z"/></symbol>
+		<symbol id="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></symbol>
+		<symbol id="icon-github" viewBox="0 0 24 24"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.11.79-.25.79-.56v-2.16c-3.22.7-3.9-1.37-3.9-1.37-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.2 1.77 1.2 1.04 1.77 2.72 1.26 3.38.96.1-.75.4-1.26.74-1.55-2.57-.29-5.27-1.28-5.27-5.7 0-1.26.45-2.29 1.2-3.1-.12-.3-.52-1.47.11-3.06 0 0 .98-.31 3.17 1.18a10.9 10.9 0 0 1 5.77 0c2.19-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.06.75.81 1.2 1.84 1.2 3.1 0 4.43-2.7 5.4-5.28 5.69.41.36.79 1.07.79 2.16v3.2c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></symbol>
+	</svg>
+	<div class="app-shell">
+		<aside class="sidebar">
+			<div class="sidebar-top">
+				<a class="brand" href="/library"><svg class="icon" aria-hidden="true"><use href="#icon-book"></use></svg><span>Bibliothèque</span></a>
+				<nav aria-label="Navigation principale">
+					<a class="nav-link" href="/search"{{ if eq .ActivePage "search" }} aria-current="page"{{ end }}><span class="nav-icon"><svg class="icon" aria-hidden="true"><use href="#icon-search"></use></svg></span><span class="nav-label">Rechercher</span></a>
+					<a class="nav-link" href="/pal"{{ if eq .ActivePage "pal" }} aria-current="page"{{ end }}><span class="nav-icon"><svg class="icon" aria-hidden="true"><use href="#icon-list"></use></svg></span><span class="nav-label">PAL</span>{{ if .NextPalCount }}<span class="count">{{ .NextPalCount }}</span>{{ end }}</a>
+					<details class="genres-panel"{{ if .GenreFilterID }} open{{ end }}>
+						<summary><span>Genres</span></summary>
+						<ul class="genre-list">
+							{{ range .Genres }}
+							<li><a class="genre-link" href="/library?genre={{ .ID }}"{{ if eq $.GenreFilterID .ID }} aria-current="page"{{ end }}><span class="genre-name">{{ .Name }}</span>{{ if .Count }}<span class="count">{{ .Count }}</span>{{ end }}</a></li>
+							{{ end }}
+						</ul>
+					</details>
+				</nav>
+			</div>
+			<div class="sidebar-bottom">
+				<a class="nav-link github-link" href="https://github.com/Lauric-h" target="_blank" rel="noreferrer"><span class="nav-icon"><svg class="icon github-icon" aria-hidden="true"><use href="#icon-github"></use></svg></span><span class="nav-label">GitHub</span></a>
+				<button id="theme-toggle" class="theme-toggle" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-moon"></use></svg><span>Mode sombre</span></button>
+			</div>
+		</aside>
+		<main class="container">
+			<div class="main-content">
+{{ end }}
+
+{{ define "layout-end" -}}
+			</div>
+		</main>
+		<footer class="site-footer"><span>Made with ❤️ by Lauric</span><a href="https://github.com/Lauric-h" target="_blank" rel="noreferrer" aria-label="GitHub de Lauric"><svg class="icon github-icon" aria-hidden="true"><use href="#icon-github"></use></svg></a></footer>
+	</div>
+	<script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js"></script>
+	<script>
+		(function () {
+			var body = document.body;
+			var toggle = document.getElementById("theme-toggle");
+			var savedTheme = localStorage.getItem("pal-theme") || "dark";
+			function applyTheme(theme) {
+				body.dataset.theme = theme;
+				toggle.querySelector("use").setAttribute("href", theme === "dark" ? "#icon-moon" : "#icon-sun");
+				toggle.children[1].textContent = theme === "dark" ? "Mode sombre" : "Mode clair";
+			}
+			applyTheme(savedTheme);
+			toggle.addEventListener("click", function () {
+				var theme = body.dataset.theme === "dark" ? "light" : "dark";
+				localStorage.setItem("pal-theme", theme);
+				applyTheme(theme);
+			});
+		})();
+	</script>
+</body>
+</html>
+{{ end }}

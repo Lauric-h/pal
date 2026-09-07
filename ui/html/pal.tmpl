@@ -1,0 +1,16 @@
+{{ define "pal" -}}
+{{ template "layout-start" . }}
+<header class="page-header">
+	<h1>PAL <span>— Pile à lire</span></h1>
+</header>
+
+{{ range .NextPalSections }}
+<section class="status-section" aria-labelledby="pal-{{ .Class }}">
+	<h2 id="pal-{{ .Class }}" class="status-heading {{ .Class }}">{{ .Label }} <span class="count">{{ len .Books }}</span></h2>
+	{{ range .Books }}{{ template "book-card" . }}{{ end }}
+</section>
+{{ else }}
+<div class="empty-state"><div class="empty-icon" aria-hidden="true">☷</div><p>Aucun livre dans votre PAL.</p></div>
+{{ end }}
+{{ template "layout-end" . }}
+{{ end }}

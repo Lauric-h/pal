@@ -1,0 +1,47 @@
+{{ define "search" -}}
+{{ template "layout-start" . }}
+<header class="page-header search-page-header">
+	<h1>Rechercher un livre</h1>
+	<form class="search-form" method="post" action="/search" hx-post="/search" hx-target="#search-results" hx-swap="innerHTML">
+		<div class="search-form-row">
+			<div class="search-input-wrap">
+				<input
+					type="text"
+					name="q"
+					placeholder="Titre, auteur, ISBN..."
+					aria-label="Rechercher un livre"
+					autocomplete="off"
+					value="{{ .SearchQuery }}"
+					hx-post="/search"
+					hx-trigger="keyup changed delay:300ms"
+					hx-target="#search-results"
+					hx-swap="innerHTML"
+					hx-include="closest form"
+				>
+			</div>
+			<select
+				class="search-provider"
+				name="provider"
+				aria-label="Fournisseur de recherche"
+				hx-post="/search"
+				hx-trigger="change"
+				hx-target="#search-results"
+				hx-swap="innerHTML"
+				hx-include="closest form"
+			>
+				<option value="openlibrary"{{ if eq .SearchProvider "openlibrary" }} selected{{ end }}>Open Library</option>
+				<option value="google_books"{{ if eq .SearchProvider "google_books" }} selected{{ end }}>Google Books</option>
+			</select>
+		</div>
+	</form>
+</header>
+
+<section id="search-results" class="search-results" aria-live="polite">
+	{{ if .SearchQuery }}{{ template "search-results" .Search }}{{ else }}
+	<div class="empty-state">
+		<p>Recherchez un livre par titre, auteur ou ISBN pour l'ajouter à votre bibliothèque.</p>
+	</div>
+	{{ end }}
+</section>
+{{ template "layout-end" . }}
+{{ end }}

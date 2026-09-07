@@ -1,0 +1,309 @@
+package handlers
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"pal/internal/models"
+	"pal/internal/store"
+)
+
+type pageData struct {
+	ActivePage      string
+	Genres          []models.Genre
+	GenreFilterID   int64
+	GenreFilterName string
+	StatusFilter    models.ReadingStatus
+	NextPal         []bookCardData
+	NextPalSections []bookSection
+	NextPalCount    int
+	Books           []bookCardData
+	Sections        []bookSection
+	Search          searchData
+	SearchQuery     string
+	SearchProvider  string
+}
+
+type bookSection struct {
+	Label string
+	Class string
+	Books []bookCardData
+}
+
+type bookCardData struct {
+	Book            models.Book
+	Genres          []models.Genre
+	SelectedGenreID int64
+}
+
+var bookSectionDefinitions = []struct {
+	status models.ReadingStatus
+	label  string
+	class  string
+}{
+	{models.StatusInProgress, "EN COURS", "in-progress"},
+	{models.StatusToRead, "À LIRE", "to-read"},
+	{models.StatusToBuy, "À ACHETER", "to-buy"},
+	{models.StatusFinished, "TERMINÉ", "finished"},
+}
+
+func makePageData(books []models.Book, genres []models.Genre) pageData {
+	data := pageData{Genres: genres}
+	for _, book := range books {
+		card := makeBookCard(book, genres)
+		data.Books = append(data.Books, card)
+		if book.IsNextPal {
+			data.NextPal = append(data.NextPal, card)
+		}
+	}
+	data.Sections = makeBookSections(data.Books)
+	data.NextPalSections = makeBookSections(data.NextPal)
+	data.NextPalCount = len(data.NextPal)
+	return data
+}
+
+func makeBookSections(books []bookCardData) []bookSection {
+	sections := make([]bookSection, 0, len(bookSectionDefinitions))
+	for _, definition := range bookSectionDefinitions {
+		section := bookSection{Label: definition.label, Class: definition.class}
+		for _, book := range books {
+			if book.Book.ReadingStatus == definition.status {
+				section.Books = append(section.Books, book)
+			}
+		}
+		if len(section.Books) > 0 {
+			sections = append(sections, section)
+		}
+	}
+	return sections
+}
+
+func makeBookCard(book models.Book, genres []models.Genre) bookCardData {
+	selectedGenreID := int64(0)
+	if book.GenreID != nil {
+		selectedGenreID = *book.GenreID
+	}
+	return bookCardData{
+		Book:            book,
+		Genres:          genres,
+		SelectedGenreID: selectedGenreID,
+	}
+}
+
+func (a *Application) home(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/search", http.StatusSeeOther)
+}
+
+func (a *Application) pageData(ctx context.Context) (pageData, error) {
+	books, err := a.Store.ListBooks(ctx)
+	if err != nil {
+		return pageData{}, err
+	}
+	genres, err := a.Store.ListGenres(ctx)
+	if err != nil {
+		return pageData{}, err
+	}
+	return makePageData(books, genres), nil
+}
+
+func (a *Application) library(w http.ResponseWriter, r *http.Request) {
+	genreID, err := optionalID(r.URL.Query().Get("genre"))
+	if err != nil {
+		http.Error(w, "genre invalide", http.StatusBadRequest)
+		return
+	}
+	status := models.ReadingStatus(strings.TrimSpace(r.URL.Query().Get("status")))
+	if status != "" && !models.IsValidReadingStatus(status) {
+		http.Error(w, "statut invalide", http.StatusBadRequest)
+		return
+	}
+
+	books, err := a.Store.ListBooksFiltered(r.Context(), genreID, status)
+	if err != nil {
+		http.Error(w, "impossible de charger les livres", http.StatusInternalServerError)
+		return
+	}
+	genres, err := a.Store.ListGenres(r.Context())
+	if err != nil {
+		http.Error(w, "impossible de charger les genres", http.StatusInternalServerError)
+		return
+	}
+	data := makePageData(books, genres)
+	data.ActivePage = "library"
+	if genreID != nil {
+		data.GenreFilterID = *genreID
+		for _, genre := range genres {
+			if genre.ID == *genreID {
+				data.GenreFilterName = genre.Name
+				break
+			}
+		}
+	}
+	data.StatusFilter = status
+	a.render(w, http.StatusOK, "library", data)
+}
+
+func (a *Application) pal(w http.ResponseWriter, r *http.Request) {
+	data, err := a.pageData(r.Context())
+	if err != nil {
+		http.Error(w, "impossible de charger les livres", http.StatusInternalServerError)
+		return
+	}
+	data.ActivePage = "pal"
+	a.render(w, http.StatusOK, "pal", data)
+}
+
+func (a *Application) createBook(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "requête invalide", http.StatusBadRequest)
+		return
+	}
+
+	book := models.Book{
+		OpenLibraryEditionID: strings.TrimSpace(r.FormValue("openlibrary_edition_id")),
+		Title:                strings.TrimSpace(r.FormValue("title")),
+		Author:               strings.TrimSpace(r.FormValue("author")),
+		CoverURL:             strings.TrimSpace(r.FormValue("cover_url")),
+	}
+	if book.OpenLibraryEditionID == "" || book.Title == "" {
+		http.Error(w, "identifiant et titre requis", http.StatusBadRequest)
+		return
+	}
+
+	created, err := a.Store.CreateBook(r.Context(), book)
+	if errors.Is(err, store.ErrBookExists) {
+		a.render(w, http.StatusConflict, "error", "livre déjà présent")
+		return
+	}
+	if err != nil {
+		http.Error(w, "impossible d'ajouter le livre", http.StatusInternalServerError)
+		return
+	}
+	genres, err := a.Store.ListGenres(r.Context())
+	if err != nil {
+		http.Error(w, "impossible de charger les genres", http.StatusInternalServerError)
+		return
+	}
+	a.render(w, http.StatusOK, "book-card", makeBookCard(created, genres))
+}
+
+func (a *Application) togglePal(w http.ResponseWriter, r *http.Request) {
+	id, err := bookID(r)
+	if err != nil {
+		http.Error(w, "identifiant invalide", http.StatusBadRequest)
+		return
+	}
+
+	book, err := a.Store.ToggleNextPal(r.Context(), id)
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "livre introuvable", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, "impossible de modifier le livre", http.StatusInternalServerError)
+		return
+	}
+	a.render(w, http.StatusOK, "next-pal-button", book)
+}
+
+func (a *Application) updateStatus(w http.ResponseWriter, r *http.Request) {
+	id, err := bookID(r)
+	if err != nil {
+		http.Error(w, "identifiant invalide", http.StatusBadRequest)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "requête invalide", http.StatusBadRequest)
+		return
+	}
+
+	status := models.ReadingStatus(strings.TrimSpace(r.FormValue("status")))
+	_, err = a.Store.UpdateReadingStatus(r.Context(), id, status)
+	if errors.Is(err, store.ErrInvalidReadingStatus) {
+		http.Error(w, "statut invalide", http.StatusBadRequest)
+		return
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "livre introuvable", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, "impossible de modifier le statut", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Refresh", "true")
+	w.WriteHeader(http.StatusOK)
+}
+
+func (a *Application) updateGenre(w http.ResponseWriter, r *http.Request) {
+	id, err := bookID(r)
+	if err != nil {
+		http.Error(w, "identifiant invalide", http.StatusBadRequest)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "requête invalide", http.StatusBadRequest)
+		return
+	}
+
+	genreID, err := optionalID(strings.TrimSpace(r.FormValue("genre_id")))
+	if err != nil {
+		http.Error(w, "genre invalide", http.StatusBadRequest)
+		return
+	}
+	if err := a.Store.UpdateBookGenre(r.Context(), id, genreID); errors.Is(err, store.ErrGenreNotFound) {
+		http.Error(w, "genre introuvable", http.StatusBadRequest)
+		return
+	} else if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "livre introuvable", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "impossible de modifier le genre", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Refresh", "true")
+	w.WriteHeader(http.StatusOK)
+}
+
+func (a *Application) deleteBook(w http.ResponseWriter, r *http.Request) {
+	id, err := bookID(r)
+	if err != nil {
+		http.Error(w, "identifiant invalide", http.StatusBadRequest)
+		return
+	}
+
+	if err := a.Store.DeleteBook(r.Context(), id); errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "livre introuvable", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "impossible de supprimer le livre", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func bookID(r *http.Request) (int64, error) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id < 1 {
+		return 0, errors.New("invalid book id")
+	}
+	return id, nil
+}
+
+func optionalID(value string) (*int64, error) {
+	if value == "" {
+		return nil, nil
+	}
+	id, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || id < 1 {
+		return nil, errors.New("invalid id")
+	}
+	return &id, nil
+}
