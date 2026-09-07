@@ -1,49 +1,94 @@
 {{ define "book-card" -}}
 <article id="book-{{ .Book.ID }}" class="book-card">
-	<div>
-		{{ if .Book.CoverURL }}<img class="book-cover" src="{{ .Book.CoverURL }}" alt="" loading="lazy" width="104">{{ else }}<div class="book-cover book-cover-empty" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#icon-book"></use></svg></div>{{ end }}
-	</div>
-	<div class="book-info">
-		<h3>{{ .Book.Title }}</h3>
-		{{ if .Book.Author }}<p class="book-author">{{ .Book.Author }}</p>{{ end }}
-		<div class="book-fields">
-			<label class="book-field">
-				<span class="sr-only">Statut</span>
-				<select
-					class="book-select"
-					name="status"
-					hx-post="/books/{{ .Book.ID }}/status"
-					hx-trigger="change"
-				>
-					<option value="in_progress"{{ if eq .Book.ReadingStatus "in_progress" }} selected{{ end }}>En cours</option>
-					<option value="to_read"{{ if eq .Book.ReadingStatus "to_read" }} selected{{ end }}>À lire</option>
-					<option value="to_buy"{{ if eq .Book.ReadingStatus "to_buy" }} selected{{ end }}>À acheter</option>
-					<option value="finished"{{ if eq .Book.ReadingStatus "finished" }} selected{{ end }}>Terminé</option>
-				</select>
-			</label>
-			<label class="book-field">
-				<span class="sr-only">Genre</span>
-				<select
-					class="book-select"
-					name="genre_id"
-					hx-post="/books/{{ .Book.ID }}/genre"
-					hx-trigger="change"
-				>
-					<option value=""{{ if eq .SelectedGenreID 0 }} selected{{ end }}>Aucun genre</option>
-					{{ range .Genres }}
-					<option value="{{ .ID }}"{{ if eq $.SelectedGenreID .ID }} selected{{ end }}>{{ .Name }}</option>
-					{{ end }}
-				</select>
-			</label>
-		</div>
-	</div>
-	<div class="card-actions">
-		{{ template "next-pal-button" .Book }}
-		<button class="card-action" type="button" aria-label="Supprimer {{ .Book.Title }}" hx-delete="/books/{{ .Book.ID }}" hx-target="closest article" hx-swap="outerHTML" hx-confirm="Supprimer ce livre ?"><svg class="icon" aria-hidden="true"><use href="#icon-trash"></use></svg></button>
-	</div>
+    <div>
+       {{ if .Book.CoverURL }}<img class="book-cover" src="{{ .Book.CoverURL }}" alt="" loading="lazy" width="104">{{ else }}<div class="book-cover book-cover-empty" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#icon-book"></use></svg></div>{{ end }}
+    </div>
+    <div class="book-info">
+       <h3>{{ .Book.Title }}</h3>
+       {{ if .Book.Author }}<p class="book-author">{{ .Book.Author }}</p>{{ end }}
+       <div class="book-fields">
+          <label class="book-field">
+             <span class="sr-only">Statut</span>
+             <select
+                class="book-select"
+                name="status"
+                hx-post="/books/{{ .Book.ID }}/status"
+                hx-trigger="change"
+             >
+                <option value="in_progress"{{ if eq .Book.ReadingStatus "in_progress" }} selected{{ end }}>En cours</option>
+                <option value="to_read"{{ if eq .Book.ReadingStatus "to_read" }} selected{{ end }}>À lire</option>
+                <option value="to_buy"{{ if eq .Book.ReadingStatus "to_buy" }} selected{{ end }}>À acheter</option>
+                <option value="finished"{{ if eq .Book.ReadingStatus "finished" }} selected{{ end }}>Terminé</option>
+             </select>
+          </label>
+          <label class="book-field">
+             <span class="sr-only">Genre</span>
+             <select
+                class="book-select"
+                name="genre_id"
+                hx-post="/books/{{ .Book.ID }}/genre"
+                hx-trigger="change"
+             >
+                <option value=""{{ if eq .SelectedGenreID 0 }} selected{{ end }}>Aucun genre</option>
+                {{ range .Genres }}
+                <option value="{{ .ID }}"{{ if eq $.SelectedGenreID .ID }} selected{{ end }}>{{ .Name }}</option>
+                {{ end }}
+             </select>
+          </label>
+       </div>
+    </div>
+    <div class="card-actions">
+       {{ template "next-pal-button" .Book }}
+       <button class="card-action" type="button" aria-label="Supprimer {{ .Book.Title }}" hx-delete="/books/{{ .Book.ID }}" hx-target="closest article" hx-swap="outerHTML" hx-confirm="Supprimer ce livre ?"><svg class="icon" aria-hidden="true"><use href="#icon-trash"></use></svg></button>
+    </div>
 </article>
 {{ end }}
 
 {{ define "next-pal-button" -}}
 <button class="card-action next-pal-toggle" type="button" hx-post="/books/{{ .ID }}/toggle-pal" hx-target="this" hx-swap="outerHTML" aria-label="{{ if .IsNextPal }}Retirer {{ .Title }} de la PAL{{ else }}Ajouter {{ .Title }} à la PAL{{ end }}">{{ if .IsNextPal }}Retirer de la PAL{{ else }}Ajouter à la PAL{{ end }}</button>
+{{ end }}
+
+{{ define "book-row" -}}
+<article id="book-{{ .Book.ID }}" class="book-row">
+    <div class="book-row-title">
+       {{ if .Book.CoverURL }}<img class="book-row-cover" src="{{ .Book.CoverURL }}" alt="" loading="lazy" width="48">{{ else }}<div class="book-row-cover book-cover-empty" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#icon-book"></use></svg></div>{{ end }}
+       <div class="book-row-meta">
+          <h3>{{ .Book.Title }}</h3>
+          {{ if .Book.Author }}<p class="book-row-author">{{ .Book.Author }}</p>{{ end }}
+       </div>
+    </div>
+    <div class="book-row-genre">
+       <label>
+          <span class="sr-only">Genre</span>
+          <select
+             class="book-select-row"
+             name="genre_id"
+             hx-post="/books/{{ .Book.ID }}/genre"
+             hx-trigger="change"
+          >
+             <option value=""{{ if eq .SelectedGenreID 0 }} selected{{ end }}>Aucun genre</option>
+             {{ range .Genres }}
+             <option value="{{ .ID }}"{{ if eq $.SelectedGenreID .ID }} selected{{ end }}>{{ .Name }}</option>
+             {{ end }}
+          </select>
+       </label>
+    </div>
+    <div class="book-row-status">
+       <label>
+          <span class="sr-only">Statut</span>
+          <select
+             class="status-select status-{{ .Book.ReadingStatus }}"
+             name="status"
+             hx-post="/books/{{ .Book.ID }}/status"
+             hx-trigger="change"
+          >
+             <option value="in_progress"{{ if eq .Book.ReadingStatus "in_progress" }} selected{{ end }}>En cours</option>
+             <option value="to_read"{{ if eq .Book.ReadingStatus "to_read" }} selected{{ end }}>À lire</option>
+             <option value="to_buy"{{ if eq .Book.ReadingStatus "to_buy" }} selected{{ end }}>À acheter</option>
+             <option value="finished"{{ if eq .Book.ReadingStatus "finished" }} selected{{ end }}>Terminé</option>
+          </select>
+       </label>
+    </div>
+    <button class="book-row-delete" type="button" aria-label="Supprimer {{ .Book.Title }}" hx-delete="/books/{{ .Book.ID }}" hx-target="closest article" hx-swap="outerHTML" hx-confirm="Supprimer ce livre ?"><svg class="icon" aria-hidden="true"><use href="#icon-trash"></use></svg></button>
+</article>
 {{ end }}

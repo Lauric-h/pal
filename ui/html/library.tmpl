@@ -1,39 +1,44 @@
 {{ define "library" -}}
 {{ template "layout-start" . }}
 <header class="page-header library-header">
-	{{ if .GenreFilterName }}<h1>{{ .GenreFilterName }}</h1>{{ else }}<h1>Bibliothèque</h1>{{ end }}
-	<p class="library-summary">{{ len .Books }} livre{{ if ne (len .Books) 1 }}s{{ end }}</p>
+    {{ if .GenreFilterName }}<h1>{{ .GenreFilterName }}</h1>{{ else }}<h1>Bibliothèque</h1>{{ end }}
+    <p class="library-summary">{{ .TotalCount }} livre{{ if ne .TotalCount 1 }}s{{ end }}</p>
 </header>
 
-<form class="library-filters" method="get" action="/library">
-	<label>
-		Genre
-		<select name="genre">
-			<option value=""{{ if eq .GenreFilterID 0 }} selected{{ end }}>Tous les genres</option>
-			{{ range .Genres }}
-			<option value="{{ .ID }}"{{ if eq $.GenreFilterID .ID }} selected{{ end }}>{{ .Name }}</option>
-			{{ end }}
-		</select>
-	</label>
-	<label>
-		Statut
-		<select name="status">
-			<option value=""{{ if eq .StatusFilter "" }} selected{{ end }}>Tous les statuts</option>
-			<option value="in_progress"{{ if eq .StatusFilter "in_progress" }} selected{{ end }}>En cours</option>
-			<option value="to_read"{{ if eq .StatusFilter "to_read" }} selected{{ end }}>À lire</option>
-			<option value="to_buy"{{ if eq .StatusFilter "to_buy" }} selected{{ end }}>À acheter</option>
-			<option value="finished"{{ if eq .StatusFilter "finished" }} selected{{ end }}>Terminé</option>
-		</select>
-	</label>
-	<button type="submit">Filtrer</button>
-	<a href="/library" class="clear-filters" aria-label="Réinitialiser les filtres" title="Réinitialiser les filtres">×</a>
-</form>
+<div class="library-toolbar">
+    <nav class="status-pills" aria-label="Filtrer par statut">
+       <a class="status-pill-link{{ if eq .StatusFilter "" }} active{{ end }}" href="/library{{ if .GenreFilterID }}?genre={{ .GenreFilterID }}{{ end }}">Tous <span class="pill-count">{{ .TotalCount }}</span></a>
+       {{ range .StatusCounts }}
+       <a class="status-pill-link{{ if eq $.StatusFilter .Status }} active{{ end }}" href="/library?status={{ .Status }}{{ if $.GenreFilterID }}&genre={{ $.GenreFilterID }}{{ end }}">{{ .Label }} <span class="pill-count">{{ .Count }}</span></a>
+       {{ end }}
+    </nav>
 
-{{ range .Sections }}
-<section class="status-section" aria-labelledby="library-{{ .Class }}">
-	<h2 id="library-{{ .Class }}" class="status-heading {{ .Class }}">{{ .Label }} <span class="count">{{ len .Books }}</span></h2>
-	{{ range .Books }}{{ template "book-card" . }}{{ end }}
-</section>
+    <form class="library-genre-filter" method="get" action="/library">
+       {{ if .StatusFilter }}<input type="hidden" name="status" value="{{ .StatusFilter }}">{{ end }}
+       <label class="sr-only" for="genre-filter">Genre</label>
+       <select id="genre-filter" name="genre" onchange="this.form.submit()">
+          <option value=""{{ if eq .GenreFilterID 0 }} selected{{ end }}>Tous les genres</option>
+          {{ range .Genres }}
+          <option value="{{ .ID }}"{{ if eq $.GenreFilterID .ID }} selected{{ end }}>{{ .Name }}</option>
+          {{ end }}
+       </select>
+    </form>
+</div>
+
+{{ if .TitleGroups }}
+<div class="library-table">
+    <div class="library-table-head">
+       <span>Titre</span>
+       <span>Genre</span>
+       <span>Statut</span>
+    </div>
+    {{ range .TitleGroups }}
+    <div class="letter-group">
+       <div class="letter-marker">{{ .Letter }}</div>
+       {{ range .Books }}{{ template "book-row" . }}{{ end }}
+    </div>
+    {{ end }}
+</div>
 {{ else }}
 <div class="empty-state"><div class="empty-icon" aria-hidden="true">▣</div><p>Aucun livre trouvé.</p></div>
 {{ end }}

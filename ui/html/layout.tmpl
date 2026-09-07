@@ -41,6 +41,7 @@
 		html, body { margin: 0; min-height: 100%; }
 		body { background: var(--pal-bg); color: var(--pal-text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; }
 		a { color: inherit; }
+		select { cursor: pointer; }
 		.app-shell { display: grid; grid-template-areas: "sidebar main" "sidebar footer"; grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: 1fr auto; min-height: 100vh; }
 		.sidebar { align-self: start; background: var(--pal-sidebar); border-right: 1px solid var(--pal-border); display: flex; flex-direction: column; grid-area: sidebar; height: 100vh; min-height: 100vh; overflow: hidden; padding: 30px 16px 24px; position: sticky; top: 0; }
 		.sidebar-top { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
@@ -58,7 +59,7 @@
 		.nav-icon { align-items: center; display: inline-flex; justify-content: center; width: 18px; }
 		.nav-label, .genre-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 		.count { color: var(--pal-muted); font-size: 13px; margin-left: auto; }
-		.genres-panel { display: flex; flex: 1 1 auto; flex-direction: column; margin-top: 16px; min-height: 0; overflow: scroll; }
+		.genres-panel { display: flex; flex: 1 1 auto; flex-direction: column; margin-top: 16px; min-height: 0; overflow: hidden; }
 		.genres-panel ul { padding: 0px 16px; }
 		.genres-panel summary { align-items: center; color: var(--pal-muted); cursor: pointer; display: flex; font-size: 12px; font-weight: 700; gap: 8px; letter-spacing: .12em; margin: 0 12px 8px; padding: 20px 0 0; position: relative; text-transform: uppercase; }
 		.genres-panel summary::marker { color: var(--pal-muted); }
@@ -106,6 +107,7 @@
 		.status-heading.in-progress { color: var(--pal-green); }
 		.status-heading.to-read { color: var(--pal-purple); }
 		.status-heading.to-buy { color: #e5a85b; }
+		.status-heading.finished { color: var(--pal-muted); }
 		.status-heading .count { font-size: 16px; font-weight: 500; letter-spacing: 0; }
 		.book-card { background: var(--pal-card); border: 1px solid var(--pal-border); border-radius: 16px; display: grid; gap: 24px; grid-template-columns: 104px minmax(0, 1fr); margin-bottom: 16px; min-height: 210px; padding: 24px; position: relative; }
 		.book-cover { background: var(--pal-hover); border-radius: 6px; height: 152px; object-fit: cover; width: 104px; }
@@ -121,14 +123,42 @@
 		.card-action { align-items: center; background: transparent; border: 1px solid var(--pal-border); border-radius: 9px; color: var(--pal-muted); display: inline-flex; font-size: 18px; justify-content: center; margin: 0; min-height: 42px; min-width: 42px; padding: 0 10px; }
 		.card-action:hover { border-color: var(--pal-accent); box-shadow: 0 0 14px var(--pal-accent-glow); color: var(--pal-accent); }
 		.next-pal-toggle { font-size: 13px; }
-		.library-filters { align-items: end; background: var(--pal-card); border: 1px solid var(--pal-border); border-radius: 14px; display: flex; gap: 12px; margin-bottom: 32px; padding: 14px 16px; }
-		.library-filters label { color: var(--pal-muted); flex: 1; font-size: 13px; margin: 0; }
-		.library-filters select { border: 1px solid var(--pal-border); border-radius: 10px; color: var(--pal-text); margin-top: 6px; min-height: 42px; padding: 0 12px; width: 100%; }
-		.library-filters button, .library-filters a { flex: 0 0 auto; margin: 0; min-height: 34px; width: auto; }
-		.library-filters button { padding: 6px 14px; }
-		.clear-filters:focus-visible { outline: 2px solid var(--pal-accent); outline-offset: 2px; }
-		.clear-filters { align-items: center; border-radius: 999px; display: inline-flex; font-size: 24px; height: 34px; justify-content: center; line-height: 1; min-width: 34px; padding: 0; }
-		.clear-filters:hover { background: var(--pal-hover); color: var(--pal-accent); }
+		.library-toolbar { align-items: center; display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 32px; }
+		.status-pills { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; }
+		.status-pill-link { background: var(--pal-card); border: 1px solid var(--pal-border); border-radius: 999px; color: var(--pal-muted); display: inline-flex; font-size: 12px; gap: 6px; padding: 6px 12px; text-decoration: none; transition: border-color .15s, box-shadow .15s, color .15s; }
+		.status-pill-link:hover { box-shadow: 0 0 16px var(--pal-accent-glow); color: var(--pal-text); }
+		.status-pill-link.active { border-color: var(--pal-purple); box-shadow: 0 0 16px rgba(155, 140, 255, .35); color: var(--pal-purple); }
+		.status-pill-link .pill-count { color: inherit; opacity: .75; }
+		.library-genre-filter { margin-left: auto; }
+		.library-genre-filter select { background: var(--pal-card); border: 1px solid var(--pal-border); border-radius: 10px; color: var(--pal-text); padding: 0 14px; }
+		.library-genre-filter select:focus { border-color: var(--pal-accent); box-shadow: 0 0 0 3px var(--pal-accent-soft); outline: none; }
+		.library-table-head { color: var(--pal-muted); display: grid; font-size: 12px; gap: 20px; grid-template-columns: minmax(0, 1fr) 220px 160px 42px; letter-spacing: .1em; padding: 0 20px 14px; text-transform: uppercase; }
+		.library-table-head span { white-space: nowrap; }
+		.library-table-head span:last-of-type { text-align: center; }
+		.letter-group { margin-bottom: 8px; }
+		.letter-marker { color: var(--pal-purple); font-size: 13px; font-weight: 700; letter-spacing: .08em; margin: 20px 0 8px; padding: 0 20px; }
+		.book-row { align-items: center; border-radius: 12px; display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr) 220px 160px 5px; padding: 12px 20px; transition: background .15s; }
+		.book-row select { margin-bottom: 0; }
+		.book-row:hover { background: var(--pal-card); }
+		.book-row-title { align-items: center; display: flex; gap: 16px; min-width: 0; }
+		.book-row-cover { border-radius: 5px; flex-shrink: 0; height: 68px; object-fit: cover; width: 48px; }
+		.book-row-cover.book-cover-empty { align-items: center; display: flex; font-size: 18px; height: 68px; justify-content: center; width: 48px; }
+		.book-row-meta { min-width: 0; }
+		.book-row-meta h3 { color: var(--pal-text); font-size: 17px; margin: 0 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.book-row-author { color: var(--pal-muted); font-size: 14px; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.book-select-row { background: transparent; border: 1px solid var(--pal-border); border-radius: 9px; color: var(--pal-text); font-size: 14px; min-height: 40px; padding: 0 12px; width: 100%; }
+		.book-select-row:focus { border-color: var(--pal-accent); box-shadow: 0 0 0 3px var(--pal-accent-soft); outline: none; }
+		.book-row-status { display: flex; justify-content: flex-end; }
+		.status-select { appearance: none; background: transparent; border: 1px solid transparent; border-radius: 999px; font-size: 14px; font-weight: 500; min-height: 34px; padding: 0 14px; width: fit-content; }
+		.status-select:focus { box-shadow: 0 0 0 3px var(--pal-accent-soft); outline: none; }
+		.status-select.status-in_progress { background: rgba(104, 211, 145, .12); color: var(--pal-green); }
+		.status-select.status-to_read { background: rgba(155, 140, 255, .14); color: var(--pal-purple); }
+		.status-select.status-to_buy { background: rgba(229, 168, 91, .14); color: #e5a85b; }
+		.status-select.status-finished { background: var(--pal-hover); color: var(--pal-muted); }
+		.status-select option { background: var(--pal-card); color: var(--pal-text); }
+		.book-row-delete { align-items: center; background: transparent; border: 0; color: var(--pal-muted); display: inline-flex; font-size: 16px; justify-content: center; min-height: 36px; min-width: 36px; opacity: 0; transition: color .15s, opacity .15s; }
+		.book-row:hover .book-row-delete, .book-row-delete:focus-visible { opacity: 1; }
+		.book-row-delete:hover { color: var(--pal-accent); }
 		.icon-defs { height: 0; position: absolute; width: 0; }
 		.sr-only { clip: rect(0, 0, 0, 0); clip-path: inset(50%); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
 		[role="alert"] { background: var(--pal-card); border: 1px solid var(--pal-border); border-radius: 10px; padding: 16px; }

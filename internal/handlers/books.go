@@ -23,6 +23,9 @@ type pageData struct {
 	NextPalCount    int
 	Books           []bookCardData
 	Sections        []bookSection
+	TitleGroups     []titleGroup
+	StatusCounts    []statusCount
+	TotalCount      int
 	Search          searchData
 	SearchQuery     string
 	SearchProvider  string
@@ -32,6 +35,18 @@ type bookSection struct {
 	Label string
 	Class string
 	Books []bookCardData
+}
+
+type titleGroup struct {
+	Letter string
+	Books  []bookCardData
+}
+
+type statusCount struct {
+	Status models.ReadingStatus
+	Label  string
+	Class  string
+	Count  int
 }
 
 type bookCardData struct {
@@ -82,6 +97,52 @@ func makeBookSections(books []bookCardData) []bookSection {
 	return sections
 }
 
+// makeTitleGroups buckets an already alphabetically-sorted list of books by
+// the first letter of their title, preserving order.
+func makeTitleGroups(books []bookCardData) []titleGroup {
+	groups := make([]titleGroup, 0)
+	for _, book := range books {
+		letter := firstLetter(book.Book.Title)
+		if len(groups) == 0 || groups[len(groups)-1].Letter != letter {
+			groups = append(groups, titleGroup{Letter: letter})
+		}
+		last := &groups[len(groups)-1]
+		last.Books = append(last.Books, book)
+	}
+	return groups
+}
+
+func firstLetter(title string) string {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return "#"
+	}
+	runes := []rune(strings.ToUpper(title))
+	return string(runes[0])
+}
+
+// makeStatusCounts returns the count of books per reading status, used for
+// the filter pills on the library page. Always returns all four statuses,
+// even when their count is zero.
+func makeStatusCounts(books []bookCardData) []statusCount {
+	counts := make([]statusCount, 0, len(bookSectionDefinitions))
+	for _, definition := range bookSectionDefinitions {
+		count := 0
+		for _, book := range books {
+			if book.Book.ReadingStatus == definition.status {
+				count++
+			}
+		}
+		counts = append(counts, statusCount{
+			Status: definition.status,
+			Label:  definition.label,
+			Class:  definition.class,
+			Count:  count,
+		})
+	}
+	return counts
+}
+
 func makeBookCard(book models.Book, genres []models.Genre) bookCardData {
 	selectedGenreID := int64(0)
 	if book.GenreID != nil {
@@ -122,18 +183,42 @@ func (a *Application) library(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	books, err := a.Store.ListBooksFiltered(r.Context(), genreID, status)
-	if err != nil {
-		http.Error(w, "impossible de charger les livres", http.StatusInternalServerError)
-		return
-	}
 	genres, err := a.Store.ListGenres(r.Context())
 	if err != nil {
 		http.Error(w, "impossible de charger les genres", http.StatusInternalServerError)
 		return
 	}
-	data := makePageData(books, genres)
-	data.ActivePage = "library"
+
+	// Books within the current genre scope, ignoring status — used to
+	// compute the "Tous" total and the per-status pill counts.
+	scopedBooks, err := a.Store.ListBooksFiltered(r.Context(), genreID, "")
+	if err != nil {
+		http.Error(w, "impossible de charger les livres", http.StatusInternalServerError)
+		return
+	}
+	scopedCards := make([]bookCardData, 0, len(scopedBooks))
+	for _, book := range scopedBooks {
+		scopedCards = append(scopedCards, makeBookCard(book, genres))
+	}
+
+	// Books actually displayed below the toolbar (status filter applied too).
+	displayedBooks := scopedBooks
+	if status != "" {
+		displayedBooks, err = a.Store.ListBooksFiltered(r.Context(), genreID, status)
+		if err != nil {
+			http.Error(w, "impossible de charger les livres", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	data := pageData{Genres: genres, ActivePage: "library", StatusFilter: status}
+	for _, book := range displayedBooks {
+		data.Books = append(data.Books, makeBookCard(book, genres))
+	}
+	data.TitleGroups = makeTitleGroups(data.Books)
+	data.StatusCounts = makeStatusCounts(scopedCards)
+	data.TotalCount = len(scopedCards)
+
 	if genreID != nil {
 		data.GenreFilterID = *genreID
 		for _, genre := range genres {
@@ -143,7 +228,6 @@ func (a *Application) library(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	data.StatusFilter = status
 	a.render(w, http.StatusOK, "library", data)
 }
 
