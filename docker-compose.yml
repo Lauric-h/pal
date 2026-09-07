@@ -1,6 +1,6 @@
 services:
   pal:
-    build: .
+    image: ghcr.io/lauric-h/pal:latest
     ports:
       - "8080:8080"
     environment:
