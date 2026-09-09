@@ -45,7 +45,7 @@
 {{ end }}
 
 {{ define "next-pal-button" -}}
-<button class="card-action next-pal-toggle" type="button" hx-post="/books/{{ .ID }}/toggle-pal" hx-target="this" hx-swap="outerHTML" aria-label="{{ if .IsNextPal }}Retirer {{ .Title }} de la PAL{{ else }}Ajouter {{ .Title }} à la PAL{{ end }}">{{ if .IsNextPal }}Retirer de la PAL{{ else }}Ajouter à la PAL{{ end }}</button>
+<button class="pal-toggle{{ if .IsNextPal }} active{{ end }}" type="button" hx-post="/books/{{ .ID }}/toggle-pal" hx-target="this" hx-swap="outerHTML" title="{{ if .IsNextPal }}Dans la PAL{{ else }}Ajouter à la PAL{{ end }}" aria-label="{{ if .IsNextPal }}Retirer {{ .Title }} de la PAL{{ else }}Ajouter {{ .Title }} à la PAL{{ end }}"><svg class="icon" aria-hidden="true"><use href="#icon-bookmark"></use></svg></button>
 {{ end }}
 
 {{ define "book-row" -}}
@@ -89,6 +89,9 @@
           </select>
        </label>
     </div>
-    <button class="book-row-delete" type="button" aria-label="Supprimer {{ .Book.Title }}" hx-delete="/books/{{ .Book.ID }}" hx-target="closest article" hx-swap="outerHTML" hx-confirm="Supprimer ce livre ?"><svg class="icon" aria-hidden="true"><use href="#icon-trash"></use></svg></button>
+    <div class="book-row-actions">
+       {{ template "next-pal-button" .Book }}
+       <button class="book-row-delete" type="button" aria-label="Supprimer {{ .Book.Title }}" hx-delete="/books/{{ .Book.ID }}" hx-target="closest article" hx-swap="outerHTML" hx-confirm="Supprimer ce livre ?"><svg class="icon" aria-hidden="true"><use href="#icon-trash"></use></svg></button>
+    </div>
 </article>
 {{ end }}

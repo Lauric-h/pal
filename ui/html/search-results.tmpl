@@ -1,25 +1,26 @@
 {{ define "search-results" -}}
 {{ if .Error }}
-	<p role="alert">{{ .Error }}</p>
+    <p role="alert">{{ .Error }}</p>
 {{ else if .Results }}
-	<h2>Résultats</h2>
-	{{ range .Results }}
-	<article class="search-result">
-		{{ if .CoverURL }}<img src="{{ .CoverURL }}" alt="" loading="lazy" width="80">{{ else }}<div class="book-cover book-cover-empty"><svg class="icon" aria-hidden="true"><use href="#icon-book"></use></svg></div>{{ end }}
-		<div>
-			<h3>{{ .Title }}</h3>
-			{{ if .Author }}<p>{{ .Author }}</p>{{ end }}
-		</div>
-		<form hx-post="/books" hx-target="closest article" hx-swap="outerHTML">
-			<input type="hidden" name="openlibrary_edition_id" value="{{ .OpenLibraryEditionID }}">
-			<input type="hidden" name="title" value="{{ .Title }}">
-			<input type="hidden" name="author" value="{{ .Author }}">
-			<input type="hidden" name="cover_url" value="{{ .CoverURL }}">
-			<button type="submit">Ajouter</button>
-		</form>
-	</article>
-	{{ end }}
+    <h2>Résultats</h2>
+    {{ range .Results }}
+    <article class="search-result">
+       {{ if .CoverURL }}<img src="{{ .CoverURL }}" alt="" loading="lazy" width="80">{{ else }}<div class="book-cover book-cover-empty"><svg class="icon" aria-hidden="true"><use href="#icon-book"></use></svg></div>{{ end }}
+       <div>
+          <h3>{{ .Title }}</h3>
+          {{ if .Author }}<p>{{ .Author }}</p>{{ end }}
+       </div>
+       <form hx-post="/books" hx-target="closest article" hx-swap="outerHTML">
+          <input type="hidden" name="openlibrary_edition_id" value="{{ .OpenLibraryEditionID }}">
+          <input type="hidden" name="title" value="{{ .Title }}">
+          <input type="hidden" name="author" value="{{ .Author }}">
+          <input type="hidden" name="cover_url" value="{{ .CoverURL }}">
+          <button type="submit" name="add_to" value="pal">Ajouter à la PAL</button>
+          <button type="submit" name="add_to" value="library">Ajouter à la bibliothèque</button>
+       </form>
+    </article>
+    {{ end }}
 {{ else }}
-	<p>Aucun résultat.</p>
+    <p>Aucun résultat.</p>
 {{ end }}
 {{ end }}

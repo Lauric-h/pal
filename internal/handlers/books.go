@@ -267,6 +267,14 @@ func (a *Application) createBook(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "impossible d'ajouter le livre", http.StatusInternalServerError)
 		return
 	}
+
+	if strings.TrimSpace(r.FormValue("add_to")) == "pal" {
+		created, err = a.Store.ToggleNextPal(r.Context(), created.ID)
+		if err != nil {
+			http.Error(w, "livre ajouté, mais impossible de le mettre dans la PAL", http.StatusInternalServerError)
+			return
+		}
+	}
 	genres, err := a.Store.ListGenres(r.Context())
 	if err != nil {
 		http.Error(w, "impossible de charger les genres", http.StatusInternalServerError)
