@@ -13,10 +13,16 @@ import (
 	"pal/internal/handlers"
 	"pal/internal/openlibrary"
 	"pal/internal/store"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
 	ctx := context.Background()
+	if err := godotenv.Load(); err != nil {
+		log.Println("pas de fichier .env trouvé, on continue avec l'environnement système")
+	}
+
 	dbPath := os.Getenv("DB_PATH")
 	if dbPath == "" {
 		dbPath = "./data/library.db"

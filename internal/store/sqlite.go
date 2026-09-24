@@ -138,7 +138,7 @@ func (s *Store) ListGenres(ctx context.Context) ([]models.Genre, error) {
 		FROM genres g
 		LEFT JOIN books b ON b.genre_id = g.id
 		GROUP BY g.id, g.name
-		ORDER BY g.id
+		ORDER BY g.name
 	`)
 	if err != nil {
 		return nil, err
