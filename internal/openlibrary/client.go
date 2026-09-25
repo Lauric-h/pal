@@ -43,6 +43,7 @@ func (c *Client) Search(ctx context.Context, query string) ([]models.Book, error
 	params.Set("q", query)
 	params.Set("fields", "key,title,author_name,cover_i,edition_key")
 	params.Set("limit", "10")
+	params.Set("lang", "fr")
 	requestURL.RawQuery = params.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)

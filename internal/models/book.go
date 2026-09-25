@@ -24,6 +24,9 @@ var DefaultGenres = []string{
 	"Romans",
 	"Science-Fiction",
 	"Polar",
+	"Fantasy",
+	"Colonisation",
+	"Internationale",
 }
 
 type ReadingStatus string

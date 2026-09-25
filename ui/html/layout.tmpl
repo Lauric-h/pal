@@ -41,7 +41,7 @@
 		body { background: var(--pal-bg); color: var(--pal-text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; }
 		h1, h2, h3, h4, p, ul, ol { margin: 0; }
 		ul, ol { list-style: none; padding: 0; }
-		button { font: inherit; }
+		button { font: inherit; cursor: pointer; }
 		a { color: inherit; }
 		select { appearance: none; -webkit-appearance: none; -moz-appearance: none; background: var(--pal-hover); border: 1px solid transparent; border-radius: 999px; color: var(--pal-text); cursor: pointer; font: inherit; font-size: 15px; font-weight: 500; min-height: 44px; padding: 0 16px; }
 		select::-ms-expand { display: none; }
@@ -89,7 +89,8 @@
 		.search-form-row { align-items: stretch; display: flex; gap: 12px; }
 		.search-input-wrap { align-items: center; background: var(--pal-card); border: 1px solid var(--pal-border); border-radius: 14px; display: flex; flex: 1 1 auto; min-height: 56px; min-width: 0; padding: 0 16px; }
 		.search-input-wrap:focus-within { border-color: var(--pal-accent); box-shadow: 0 0 0 3px var(--pal-accent-soft), 0 0 24px var(--pal-accent-glow); }
-		.search-input-wrap input { appearance: none; background: transparent; border: 0; box-shadow: none; color: var(--pal-text); font-size: 17px; height: 100%; margin: 0; padding: 0; }
+		.search-input-wrap input { appearance: none; background: transparent; border: 0; box-shadow: none; color: var(--pal-text); font-size: 17px; height: 100%; margin: 0; padding: 0; width: 100%; }
+		.search-input-wrap input:focus-visible { outline: none; }
 		.search-input-wrap input::placeholder { color: var(--pal-muted); }
 		.search-provider { flex: 0 0 220px; height: 56px; min-width: 0; }
 		.empty-state { align-items: center; color: var(--pal-text); display: flex; flex-direction: column; justify-content: center; min-height: 540px; text-align: center; }
