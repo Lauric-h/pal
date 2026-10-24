@@ -11,10 +11,16 @@ import (
 )
 
 var (
-	ErrBookExists           = errors.New("book already exists")
-	ErrInvalidReadingStatus = errors.New("invalid reading status")
-	ErrGenreNotFound        = errors.New("genre not found")
+	ErrBookExists             = errors.New("book already exists")
+	ErrInvalidReadingStatus   = errors.New("invalid reading status")
+	ErrInvalidReadingProgress = errors.New("invalid reading progress")
+	ErrGenreNotFound          = errors.New("genre not found")
 )
+
+type bookColumn struct {
+	name       string
+	definition string
+}
 
 type Store struct {
 	db *sql.DB
@@ -51,10 +57,56 @@ func (s *Store) Init(ctx context.Context) error {
 			is_next_pal INTEGER NOT NULL DEFAULT 0,
 			reading_status TEXT NOT NULL DEFAULT 'to_read',
 			genre_id INTEGER REFERENCES genres(id) ON DELETE SET NULL,
+			total_pages INTEGER CHECK (total_pages IS NULL OR total_pages > 0),
+			pages_read INTEGER NOT NULL DEFAULT 0 CHECK (pages_read >= 0),
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)
 	`); err != nil {
 		return err
+	}
+
+	if err := s.ensureBookColumns(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Store) ensureBookColumns(ctx context.Context) error {
+	rows, err := s.db.QueryContext(ctx, `PRAGMA table_info(books)`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	columns := make(map[string]bool)
+	for rows.Next() {
+		var cid int
+		var name, columnType string
+		var notNull, primaryKey int
+		var defaultValue sql.NullString
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+			return err
+		}
+		columns[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+
+	for _, column := range []bookColumn{
+		{name: "total_pages", definition: "INTEGER CHECK (total_pages IS NULL OR total_pages > 0)"},
+		{name: "pages_read", definition: "INTEGER NOT NULL DEFAULT 0 CHECK (pages_read >= 0)"},
+	} {
+		if columns[column.name] {
+			continue
+		}
+		if _, err := s.db.ExecContext(ctx, "ALTER TABLE books ADD COLUMN "+column.name+" "+column.definition); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -62,19 +114,25 @@ func (s *Store) Init(ctx context.Context) error {
 
 func (s *Store) CreateBook(ctx context.Context, book models.Book) (models.Book, error) {
 	const query = `
-		INSERT INTO books (openlibrary_edition_id, title, author, cover_url)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO books (openlibrary_edition_id, title, author, cover_url, total_pages)
+		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(openlibrary_edition_id) DO NOTHING
-		RETURNING id, openlibrary_edition_id, title, author, cover_url, is_next_pal, reading_status, genre_id, created_at
+		RETURNING id, openlibrary_edition_id, title, author, cover_url, is_next_pal, reading_status, genre_id, total_pages, pages_read, created_at
 	`
 
+	var totalPages any
+	if book.TotalPages != nil {
+		totalPages = *book.TotalPages
+	}
+
 	var created models.Book
-	var genreID sql.NullInt64
+	var genreID, storedTotalPages sql.NullInt64
 	err := s.db.QueryRowContext(ctx, query,
 		book.OpenLibraryEditionID,
 		book.Title,
 		book.Author,
 		book.CoverURL,
+		totalPages,
 	).Scan(
 		&created.ID,
 		&created.OpenLibraryEditionID,
@@ -84,12 +142,15 @@ func (s *Store) CreateBook(ctx context.Context, book models.Book) (models.Book, 
 		&created.IsNextPal,
 		&created.ReadingStatus,
 		&genreID,
+		&storedTotalPages,
+		&created.PagesRead,
 		&created.CreatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return models.Book{}, ErrBookExists
 	}
 	created.GenreID = nullableID(genreID)
+	created.TotalPages = nullableInt(storedTotalPages)
 	return created, err
 }
 
@@ -108,7 +169,7 @@ func (s *Store) ListBooksFiltered(ctx context.Context, genreID *int64, status mo
 	}
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT b.id, b.openlibrary_edition_id, b.title, b.author, b.cover_url,
-			b.is_next_pal, b.reading_status, g.id, g.name, b.created_at
+			b.is_next_pal, b.reading_status, g.id, g.name, b.total_pages, b.pages_read, b.created_at
 		FROM books b
 		LEFT JOIN genres g ON g.id = b.genre_id
 		WHERE (? = 0 OR b.genre_id = ?)
@@ -161,11 +222,11 @@ func (s *Store) ToggleNextPal(ctx context.Context, id int64) (models.Book, error
 		UPDATE books
 		SET is_next_pal = CASE is_next_pal WHEN 1 THEN 0 ELSE 1 END
 		WHERE id = ?
-		RETURNING id, openlibrary_edition_id, title, author, cover_url, is_next_pal, reading_status, genre_id, created_at
+		RETURNING id, openlibrary_edition_id, title, author, cover_url, is_next_pal, reading_status, genre_id, total_pages, pages_read, created_at
 	`
 
 	var book models.Book
-	var genreID sql.NullInt64
+	var genreID, totalPages sql.NullInt64
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&book.ID,
 		&book.OpenLibraryEditionID,
@@ -175,9 +236,12 @@ func (s *Store) ToggleNextPal(ctx context.Context, id int64) (models.Book, error
 		&book.IsNextPal,
 		&book.ReadingStatus,
 		&genreID,
+		&totalPages,
+		&book.PagesRead,
 		&book.CreatedAt,
 	)
 	book.GenreID = nullableID(genreID)
+	book.TotalPages = nullableInt(totalPages)
 	return book, err
 }
 
@@ -191,11 +255,11 @@ func (s *Store) UpdateReadingStatus(ctx context.Context, id int64, status models
 		SET reading_status = ?,
 			is_next_pal = CASE WHEN ? = 'finished' THEN 0 ELSE is_next_pal END
 		WHERE id = ?
-		RETURNING id, openlibrary_edition_id, title, author, cover_url, is_next_pal, reading_status, genre_id, created_at
+		RETURNING id, openlibrary_edition_id, title, author, cover_url, is_next_pal, reading_status, genre_id, total_pages, pages_read, created_at
 	`
 
 	var book models.Book
-	var genreID sql.NullInt64
+	var genreID, totalPages sql.NullInt64
 	err := s.db.QueryRowContext(ctx, query, status, status, id).Scan(
 		&book.ID,
 		&book.OpenLibraryEditionID,
@@ -205,9 +269,48 @@ func (s *Store) UpdateReadingStatus(ctx context.Context, id int64, status models
 		&book.IsNextPal,
 		&book.ReadingStatus,
 		&genreID,
+		&totalPages,
+		&book.PagesRead,
 		&book.CreatedAt,
 	)
 	book.GenreID = nullableID(genreID)
+	book.TotalPages = nullableInt(totalPages)
+	return book, err
+}
+func (s *Store) UpdateBookProgress(ctx context.Context, id int64, pagesRead int, totalPages *int) (models.Book, error) {
+	if pagesRead < 0 || totalPages != nil && (*totalPages <= 0 || pagesRead > *totalPages) {
+		return models.Book{}, ErrInvalidReadingProgress
+	}
+
+	var totalPagesValue any
+	if totalPages != nil {
+		totalPagesValue = *totalPages
+	}
+
+	const query = `
+		UPDATE books
+		SET pages_read = ?, total_pages = ?
+		WHERE id = ?
+		RETURNING id, openlibrary_edition_id, title, author, cover_url, is_next_pal, reading_status, genre_id, total_pages, pages_read, created_at
+	`
+
+	var book models.Book
+	var genreID, storedTotalPages sql.NullInt64
+	err := s.db.QueryRowContext(ctx, query, pagesRead, totalPagesValue, id).Scan(
+		&book.ID,
+		&book.OpenLibraryEditionID,
+		&book.Title,
+		&book.Author,
+		&book.CoverURL,
+		&book.IsNextPal,
+		&book.ReadingStatus,
+		&genreID,
+		&storedTotalPages,
+		&book.PagesRead,
+		&book.CreatedAt,
+	)
+	book.GenreID = nullableID(genreID)
+	book.TotalPages = nullableInt(storedTotalPages)
 	return book, err
 }
 
@@ -256,7 +359,7 @@ func (s *Store) DeleteBook(ctx context.Context, id int64) error {
 
 func scanBook(scanner interface{ Scan(...any) error }) (models.Book, error) {
 	var book models.Book
-	var genreID sql.NullInt64
+	var genreID, totalPages sql.NullInt64
 	var genreName sql.NullString
 	err := scanner.Scan(
 		&book.ID,
@@ -268,13 +371,24 @@ func scanBook(scanner interface{ Scan(...any) error }) (models.Book, error) {
 		&book.ReadingStatus,
 		&genreID,
 		&genreName,
+		&totalPages,
+		&book.PagesRead,
 		&book.CreatedAt,
 	)
 	book.GenreID = nullableID(genreID)
+	book.TotalPages = nullableInt(totalPages)
 	if genreName.Valid {
 		book.GenreName = genreName.String
 	}
 	return book, err
+}
+
+func nullableInt(value sql.NullInt64) *int {
+	if !value.Valid {
+		return nil
+	}
+	result := int(value.Int64)
+	return &result
 }
 
 func nullableID(value sql.NullInt64) *int64 {

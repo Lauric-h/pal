@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
@@ -57,6 +58,7 @@ type bookCardData struct {
 	Book            models.Book
 	Genres          []models.Genre
 	SelectedGenreID int64
+	ProgressLabel   string
 }
 
 var bookSectionDefinitions = []struct {
@@ -203,7 +205,22 @@ func makeBookCard(book models.Book, genres []models.Genre) bookCardData {
 		Book:            book,
 		Genres:          genres,
 		SelectedGenreID: selectedGenreID,
+		ProgressLabel:   progressLabel(book),
 	}
+}
+
+func progressLabel(book models.Book) string {
+	if book.TotalPages == nil {
+		return fmt.Sprintf("%d pages lues", book.PagesRead)
+	}
+	return fmt.Sprintf("%d/%d pages — %d %%", book.PagesRead, book.TotalPagesValue(), progressPercent(book))
+}
+
+func progressPercent(book models.Book) int {
+	if book.TotalPages == nil || book.TotalPagesValue() <= 0 {
+		return 0
+	}
+	return book.PagesRead * 100 / book.TotalPagesValue()
 }
 
 func (a *Application) home(w http.ResponseWriter, r *http.Request) {
@@ -314,16 +331,29 @@ func (a *Application) createBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	totalPages, err := optionalPositiveInt(strings.TrimSpace(r.FormValue("total_pages")))
+	if err != nil {
+		http.Error(w, "nombre total de pages invalide", http.StatusBadRequest)
+		return
+	}
+
 	book := models.Book{
 		OpenLibraryEditionID: strings.TrimSpace(r.FormValue("openlibrary_edition_id")),
 		Title:                formatInput(r.FormValue("title")),
 		Author:               formatInput(r.FormValue("author")),
 		CoverURL:             strings.TrimSpace(r.FormValue("cover_url")),
+		TotalPages:           totalPages,
 	}
 
 	if book.OpenLibraryEditionID == "" || book.Title == "" {
 		http.Error(w, "identifiant et titre requis", http.StatusBadRequest)
 		return
+	}
+
+	if !strings.HasPrefix(book.OpenLibraryEditionID, "google:") && a.OpenLibrary != nil {
+		if pages, lookupErr := a.OpenLibrary.EditionPages(r.Context(), book.OpenLibraryEditionID); lookupErr == nil && pages != nil {
+			book.TotalPages = pages
+		}
 	}
 
 	created, err := a.Store.CreateBook(r.Context(), book)
@@ -442,6 +472,47 @@ func (a *Application) updateGenre(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (a *Application) updateProgress(w http.ResponseWriter, r *http.Request) {
+	id, err := bookID(r)
+	if err != nil {
+		http.Error(w, "identifiant invalide", http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "requête invalide", http.StatusBadRequest)
+		return
+	}
+
+	pagesRead, err := nonNegativeInt(strings.TrimSpace(r.FormValue("pages_read")))
+	if err != nil {
+		http.Error(w, "pages lues invalides", http.StatusBadRequest)
+		return
+	}
+	totalPages, err := optionalPositiveInt(strings.TrimSpace(r.FormValue("total_pages")))
+	if err != nil {
+		http.Error(w, "nombre total de pages invalide", http.StatusBadRequest)
+		return
+	}
+
+	_, err = a.Store.UpdateBookProgress(r.Context(), id, pagesRead, totalPages)
+	if errors.Is(err, store.ErrInvalidReadingProgress) {
+		http.Error(w, "progression invalide", http.StatusBadRequest)
+		return
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "livre introuvable", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, "impossible de modifier la progression", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Refresh", "true")
+	w.WriteHeader(http.StatusOK)
+}
+
 func (a *Application) deleteBook(w http.ResponseWriter, r *http.Request) {
 	id, err := bookID(r)
 	if err != nil {
@@ -480,6 +551,28 @@ func optionalID(value string) (*int64, error) {
 	}
 
 	return &id, nil
+}
+
+func nonNegativeInt(value string) (int, error) {
+	if value == "" {
+		return 0, errors.New("empty integer")
+	}
+	result, err := strconv.Atoi(value)
+	if err != nil || result < 0 {
+		return 0, errors.New("invalid non-negative integer")
+	}
+	return result, nil
+}
+
+func optionalPositiveInt(value string) (*int, error) {
+	if value == "" {
+		return nil, nil
+	}
+	result, err := strconv.Atoi(value)
+	if err != nil || result <= 0 {
+		return nil, errors.New("invalid positive integer")
+	}
+	return &result, nil
 }
 
 func formatInput(input string) string {
