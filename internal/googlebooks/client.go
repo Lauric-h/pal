@@ -73,11 +73,17 @@ func (c *Client) Search(ctx context.Context, query string) ([]models.Book, error
 			continue
 		}
 		coverURL := strings.Replace(item.VolumeInfo.ImageLinks.Thumbnail, "http://", "https://", 1)
+		var totalPages *int
+		if item.VolumeInfo.PageCount > 0 {
+			pageCount := item.VolumeInfo.PageCount
+			totalPages = &pageCount
+		}
 		books = append(books, models.Book{
 			OpenLibraryEditionID: "google:" + id,
 			Title:                title,
 			Author:               strings.Join(item.VolumeInfo.Authors, ", "),
 			CoverURL:             coverURL,
+			TotalPages:           totalPages,
 		})
 	}
 	return books, nil
@@ -89,6 +95,7 @@ type apiResponse struct {
 		VolumeInfo struct {
 			Title      string   `json:"title"`
 			Authors    []string `json:"authors"`
+			PageCount  int      `json:"pageCount"`
 			ImageLinks struct {
 				Thumbnail string `json:"thumbnail"`
 			} `json:"imageLinks"`
