@@ -405,8 +405,7 @@ func (a *Application) updateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("HX-Refresh", "true")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *Application) updateGenre(w http.ResponseWriter, r *http.Request) {
@@ -438,8 +437,7 @@ func (a *Application) updateGenre(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("HX-Refresh", "true")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *Application) deleteBook(w http.ResponseWriter, r *http.Request) {
