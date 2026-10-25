@@ -511,6 +511,47 @@ func (a *Application) updateProgress(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (a *Application) updateProgress(w http.ResponseWriter, r *http.Request) {
+	id, err := bookID(r)
+	if err != nil {
+		http.Error(w, "identifiant invalide", http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "requête invalide", http.StatusBadRequest)
+		return
+	}
+
+	pagesRead, err := nonNegativeInt(strings.TrimSpace(r.FormValue("pages_read")))
+	if err != nil {
+		http.Error(w, "pages lues invalides", http.StatusBadRequest)
+		return
+	}
+	totalPages, err := optionalPositiveInt(strings.TrimSpace(r.FormValue("total_pages")))
+	if err != nil {
+		http.Error(w, "nombre total de pages invalide", http.StatusBadRequest)
+		return
+	}
+
+	_, err = a.Store.UpdateBookProgress(r.Context(), id, pagesRead, totalPages)
+	if errors.Is(err, store.ErrInvalidReadingProgress) {
+		http.Error(w, "progression invalide", http.StatusBadRequest)
+		return
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "livre introuvable", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, "impossible de modifier la progression", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Refresh", "true")
+	w.WriteHeader(http.StatusOK)
+}
+
 func (a *Application) deleteBook(w http.ResponseWriter, r *http.Request) {
 	id, err := bookID(r)
 	if err != nil {
