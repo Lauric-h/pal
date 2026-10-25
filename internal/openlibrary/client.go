@@ -28,8 +28,44 @@ func New(userAgent string) *Client {
 		userAgent:  userAgent,
 	}
 }
+func (c *Client) EditionPages(ctx context.Context, editionID string) (*int, error) {
+	editionID = strings.TrimSpace(strings.TrimPrefix(editionID, "/books/"))
+	if editionID == "" {
+		return nil, fmt.Errorf("open library: empty edition ID")
+	}
+
+	requestURL := "https://openlibrary.org/books/" + url.PathEscape(editionID) + ".json"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", c.userAgent)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("open library: unexpected HTTP status %s", resp.Status)
+	}
+
+	var payload struct {
+		NumberOfPages int `json:"number_of_pages"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return nil, fmt.Errorf("open library: decode edition: %w", err)
+	}
+	if payload.NumberOfPages <= 0 {
+		return nil, nil
+	}
+	return &payload.NumberOfPages, nil
+}
 
 func (c *Client) Search(ctx context.Context, query string) ([]models.Book, error) {
+
 	query = strings.TrimSpace(query)
 	if query == "" {
 		return nil, nil

@@ -56,6 +56,15 @@ type Book struct {
 	Title                string
 	Author               string
 	CoverURL             string
+	TotalPages           *int
+	PagesRead            int
 	IsNextPal            bool
 	CreatedAt            time.Time
+}
+
+func (book Book) TotalPagesValue() int {
+	if book.TotalPages == nil {
+		return 0
+	}
+	return *book.TotalPages
 }

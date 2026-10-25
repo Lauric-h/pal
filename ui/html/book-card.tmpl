@@ -36,6 +36,7 @@
              </select>
           </label>
        </div>
+       {{ template "book-progress" . }}
     </div>
     <div class="card-actions">
        {{ template "next-pal-button" .Book }}
@@ -46,6 +47,27 @@
 
 {{ define "next-pal-button" -}}
 <button class="pal-toggle{{ if .IsNextPal }} active{{ end }}" type="button" hx-post="/books/{{ .ID }}/toggle-pal" hx-target="this" hx-swap="outerHTML" title="{{ if .IsNextPal }}Dans la PAL{{ else }}Ajouter à la PAL{{ end }}" aria-label="{{ if .IsNextPal }}Retirer {{ .Title }} de la PAL{{ else }}Ajouter {{ .Title }} à la PAL{{ end }}"><svg class="icon" aria-hidden="true"><use href="#icon-bookmark"></use></svg></button>
+{{ end }}
+{{ define "book-progress" -}}
+{{ if eq .Book.ReadingStatus "in_progress" }}
+    <div class="book-progress-row">
+       {{ if gt .Book.PagesRead 0 }}<p class="book-progress">{{ .ProgressLabel }}</p>{{ end }}
+       <details class="book-progress-popover">
+          <summary>Suivre ma progression</summary>
+          <form class="book-progress-form" hx-post="/books/{{ .Book.ID }}/progress">
+             <label>
+                <span>Pages lues</span>
+                <input type="number" name="pages_read" min="0" value="{{ .Book.PagesRead }}" required>
+             </label>
+             <label>
+                <span>Total</span>
+                <input type="number" name="total_pages" min="1" value="{{ if .Book.TotalPages }}{{ .Book.TotalPagesValue }}{{ end }}">
+             </label>
+             <button type="submit">Enregistrer</button>
+          </form>
+       </details>
+    </div>
+{{ end }}
 {{ end }}
 
 {{ define "book-row" -}}
@@ -88,6 +110,9 @@
              <option value="finished"{{ if eq .Book.ReadingStatus "finished" }} selected{{ end }}>Terminé</option>
           </select>
        </label>
+    </div>
+    <div class="book-row-progress">
+       {{ template "book-progress" . }}
     </div>
     <div class="book-row-actions">
        {{ template "next-pal-button" .Book }}

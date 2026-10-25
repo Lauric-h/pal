@@ -10,6 +10,7 @@ PAL helps you search for books, add them to your library, organize them by genre
 - Add books with title, author, cover
 - Add genres and filter the library by genre or status
 - Mark books as part of the PAL
+- Track reading progress with pages read, total pages, and percentage
 - Persist data in SQLite
 - Dark and light themes
 - Responsive server-rendered UI with HTMX interactions

@@ -46,6 +46,8 @@
 		select { appearance: none; -webkit-appearance: none; -moz-appearance: none; background: var(--pal-hover); border: 1px solid transparent; border-radius: 999px; color: var(--pal-text); cursor: pointer; font: inherit; font-size: 15px; font-weight: 500; min-height: 44px; padding: 0 16px; }
 		select::-ms-expand { display: none; }
 		select:focus { box-shadow: 0 0 0 3px var(--pal-accent-soft); outline: none; }
+		input { background: var(--pal-hover); border: 1px solid var(--pal-border); border-radius: 8px; color: var(--pal-text); font: inherit; min-height: 40px; padding: 0 10px; }
+		input:focus { border-color: var(--pal-accent); box-shadow: 0 0 0 3px var(--pal-accent-soft); outline: none; }
 		.app-shell { display: grid; grid-template-areas: "sidebar main" "sidebar footer"; grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: 1fr auto; min-height: 100vh; }
 		.sidebar { align-self: start; background: var(--pal-sidebar); border-right: 1px solid var(--pal-border); display: flex; flex-direction: column; grid-area: sidebar; height: 100vh; min-height: 100vh; overflow: hidden; padding: 30px 16px 24px; position: sticky; top: 0; }
 		.sidebar-top { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
@@ -122,6 +124,17 @@
 		.book-fields { display: grid; gap: 12px; max-width: 760px; }
 		.book-field { margin: 0; }
 		.book-select { font-size: 17px; min-height: 52px; width: 100%; }
+		.book-progress-row { align-items: center; display: flex; gap: 16px; justify-content: space-between; margin-right: -132px; margin-top: 18px; }
+		.book-progress { color: var(--pal-green); font-size: 15px; margin: 0; }
+		.book-progress-popover { flex-shrink: 0; position: relative; }
+		.book-progress-popover summary { color: var(--pal-accent); cursor: pointer; font-size: 14px; list-style: none; text-decoration: underline; text-underline-offset: 3px; }
+		.book-progress-popover summary::-webkit-details-marker { display: none; }
+		.book-progress-popover summary:hover { color: var(--pal-text); }
+		.book-progress-form { align-items: end; background: var(--pal-card); border: 1px solid var(--pal-border); border-radius: 10px; box-shadow: 0 12px 28px rgba(0, 0, 0, .35); display: flex; flex-wrap: wrap; gap: 8px; left: 50%; margin: 0; padding: 12px; position: fixed; top: 50%; transform: translate(-50%, -50%); width: min(260px, calc(100vw - 32px)); z-index: 3; }
+		.book-progress-form label { color: var(--pal-muted); display: grid; font-size: 12px; gap: 4px; }
+		.book-progress-form input { width: 110px; }
+		.book-progress-form button { background: transparent; border: 1px solid var(--pal-border); border-radius: 8px; color: var(--pal-text); min-height: 40px; padding: 0 12px; }
+		.book-progress-form button:hover { border-color: var(--pal-accent); color: var(--pal-accent); }
 		.card-actions { display: flex; gap: 8px; position: absolute; right: 24px; top: 24px; }
 		.pal-toggle { align-items: center; background: transparent; border: 1px solid var(--pal-border); border-radius: 9px; color: var(--pal-muted); display: inline-flex; justify-content: center; min-height: 42px; min-width: 42px; padding: 0; transition: background .15s, border-color .15s, color .15s; }
 		.pal-toggle:hover { border-color: var(--pal-accent); box-shadow: 0 0 14px var(--pal-accent-glow); color: var(--pal-accent); }
@@ -137,12 +150,12 @@
 		.status-pill-link .pill-count { color: inherit; opacity: .75; }
 		.library-genre-filter { margin-left: auto; }
 		.library-genre-filter select { min-height: 40px; }
-		.library-table-head { color: var(--pal-muted); display: grid; font-size: 12px; gap: 20px; grid-template-columns: minmax(0, 1fr) 220px 190px 90px; letter-spacing: .1em; padding: 0 20px 14px; text-transform: uppercase; }
+		.library-table-head { color: var(--pal-muted); display: grid; font-size: 12px; gap: 20px; grid-template-columns: minmax(0, 1fr) 200px 150px 190px 90px; letter-spacing: .1em; padding: 0 20px 14px; text-transform: uppercase; }
 		.library-table-head span { white-space: nowrap; }
 		.library-table-head span:last-of-type { text-align: right; }
 		.letter-group { margin-bottom: 8px; }
 		.letter-marker { color: var(--pal-purple); font-size: 13px; font-weight: 700; letter-spacing: .08em; margin: 20px 0 8px; padding: 0 20px; }
-		.book-row { align-items: center; border-radius: 12px; display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr) 220px 190px 90px; padding: 12px 20px; transition: background .15s; }
+		.book-row { align-items: center; border-radius: 12px; display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr) 200px 150px 190px 90px; padding: 12px 20px; transition: background .15s; }
 		.book-row:hover { background: var(--pal-card); }
 		.book-row-title { align-items: center; display: flex; gap: 16px; min-width: 0; }
 		.book-row-cover { border-radius: 5px; flex-shrink: 0; height: 68px; object-fit: cover; width: 48px; }
@@ -151,7 +164,13 @@
 		.book-row-meta h3 { color: var(--pal-text); font-size: 17px; margin: 0 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 		.book-row-author { color: var(--pal-muted); font-size: 14px; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 		.book-select-row { font-size: 14px; min-height: 34px; width: fit-content; }
-		.book-row-status { display: flex; justify-content: flex-end; min-width: 0; }
+		.book-row-progress { min-width: 0; }
+		.book-row-progress .book-progress-row { align-items: flex-start; flex-direction: column; gap: 6px; margin: 0; }
+		.book-row-progress .book-progress { font-size: 12px; }
+		.book-row-progress .book-progress-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+		.book-row-progress .book-progress-form label { min-width: 0; }
+		.book-row-progress .book-progress-form input { min-width: 0; width: 100%; }
+		.book-row-progress .book-progress-form button { grid-column: 1 / -1; min-height: 34px; }
 		.status-select { background: transparent; font-size: 14px; min-height: 34px; width: fit-content; }
 		.status-select.status-in_progress { background: rgba(104, 211, 145, .12); color: var(--pal-green); }
 		.status-select.status-to_read { background: rgba(155, 140, 255, .14); color: var(--pal-purple); }
@@ -203,11 +222,12 @@
 
 			.library-table-head { display: none; }
 			.book-row { grid-template-columns: 1fr; gap: 10px; padding: 14px; }
-			.book-row-genre, .book-row-status, .book-row-actions { justify-content: flex-start; }
+			.book-row-genre, .book-row-status, .book-row-progress, .book-row-actions { justify-content: flex-start; }
 			.book-row-actions .pal-toggle, .book-row-delete { opacity: 1; }
 
 			.book-card { grid-template-columns: 72px minmax(0, 1fr); gap: 14px; padding: 16px; }
 			.book-info { padding-right: 0; }
+			.book-progress-row { margin-right: 0; }
 			.book-cover, .book-card .book-cover-empty { height: 104px; width: 72px; }
 			.book-card .book-cover-empty { font-size: 26px; }
 			.card-actions { grid-column: 1 / -1; justify-content: flex-end; margin-top: 14px; position: static; }

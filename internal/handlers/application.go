@@ -27,7 +27,7 @@ func (a *Application) Routes() http.Handler {
 	mux.HandleFunc("POST /books", a.createBook)
 	mux.HandleFunc("POST /books/{id}/toggle-pal", a.togglePal)
 	mux.HandleFunc("POST /books/{id}/status", a.updateStatus)
-	mux.HandleFunc("POST /books/{id}/genre", a.updateGenre)
+	mux.HandleFunc("POST /books/{id}/progress", a.updateProgress)
 	mux.HandleFunc("DELETE /books/{id}", a.deleteBook)
 	return mux
 }

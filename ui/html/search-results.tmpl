@@ -14,7 +14,7 @@
           <input type="hidden" name="openlibrary_edition_id" value="{{ .OpenLibraryEditionID }}">
           <input type="hidden" name="title" value="{{ .Title }}">
           <input type="hidden" name="author" value="{{ .Author }}">
-          <input type="hidden" name="cover_url" value="{{ .CoverURL }}">
+          <input type="hidden" name="total_pages" value="{{ if .TotalPages }}{{ .TotalPagesValue }}{{ end }}">
           <button type="submit" name="add_to" value="pal">Ajouter à la PAL</button>
           <button type="submit" name="add_to" value="library">Ajouter à la bibliothèque</button>
        </form>
