@@ -10,8 +10,9 @@ import (
 )
 
 type searchData struct {
-	Results []models.Book
-	Error   string
+	Existing []models.Book
+	Results  []models.Book
+	Error    string
 }
 
 type bookSearcher interface {
@@ -63,10 +64,6 @@ func (a *Application) search(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "fournisseur invalide", http.StatusBadRequest)
 		return
 	}
-	if searcher == nil {
-		http.Error(w, "fournisseur indisponible", http.StatusInternalServerError)
-		return
-	}
 
 	query := strings.TrimSpace(r.FormValue("q"))
 	if query == "" {
@@ -79,11 +76,22 @@ func (a *Application) search(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := searchData{}
-	books, err := searcher.Search(r.Context(), query)
+	existing, err := a.Store.SearchBooksByTitle(r.Context(), query)
 	if err != nil {
-		data.Error = fmt.Sprintf("Recherche %s indisponible : %v", label, err)
+		http.Error(w, "impossible de rechercher les livres", http.StatusInternalServerError)
+		return
+	}
+	data.Existing = existing
+
+	if searcher == nil {
+		data.Error = fmt.Sprintf("Recherche %s indisponible", label)
 	} else {
-		data.Results = books
+		books, err := searcher.Search(r.Context(), query)
+		if err != nil {
+			data.Error = fmt.Sprintf("Recherche %s indisponible : %v", label, err)
+		} else {
+			data.Results = books
+		}
 	}
 
 	if isHTMX {
