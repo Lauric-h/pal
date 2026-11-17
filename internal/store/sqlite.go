@@ -16,6 +16,7 @@ var (
 	ErrInvalidReadingStatus   = errors.New("invalid reading status")
 	ErrInvalidReadingProgress = errors.New("invalid reading progress")
 	ErrGenreNotFound          = errors.New("genre not found")
+	ErrInvalidPalOrder        = errors.New("invalid PAL order")
 )
 
 type bookColumn struct {
@@ -101,11 +102,28 @@ func (s *Store) ensureBookColumns(ctx context.Context) error {
 	for _, column := range []bookColumn{
 		{name: "total_pages", definition: "INTEGER CHECK (total_pages IS NULL OR total_pages > 0)"},
 		{name: "pages_read", definition: "INTEGER NOT NULL DEFAULT 0 CHECK (pages_read >= 0)"},
+		{name: "pal_order", definition: "INTEGER"},
 	} {
 		if columns[column.name] {
 			continue
 		}
 		if _, err := s.db.ExecContext(ctx, "ALTER TABLE books ADD COLUMN "+column.name+" "+column.definition); err != nil {
+			return err
+		}
+	}
+	if !columns["pal_order"] {
+		_, err := s.db.ExecContext(ctx, `
+			UPDATE books AS book
+			SET pal_order = (
+				SELECT COUNT(*) - 1
+				FROM books AS previous
+				WHERE previous.is_next_pal = 1
+					AND (previous.created_at < book.created_at OR
+						(previous.created_at = book.created_at AND previous.id <= book.id))
+			)
+			WHERE book.is_next_pal = 1
+		`)
+		if err != nil {
 			return err
 		}
 	}
@@ -118,7 +136,7 @@ func (s *Store) CreateBook(ctx context.Context, book models.Book) (models.Book, 
 		INSERT INTO books (openlibrary_edition_id, title, author, cover_url, total_pages)
 		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(openlibrary_edition_id) DO NOTHING
-		RETURNING id, openlibrary_edition_id, title, author, cover_url, is_next_pal, reading_status, genre_id, total_pages, pages_read, created_at
+		RETURNING id, openlibrary_edition_id, title, author, cover_url, is_next_pal, reading_status, genre_id, total_pages, pages_read, pal_order, created_at
 	`
 
 	var totalPages any
@@ -128,6 +146,7 @@ func (s *Store) CreateBook(ctx context.Context, book models.Book) (models.Book, 
 
 	var created models.Book
 	var genreID, storedTotalPages sql.NullInt64
+	var storedPalOrder sql.NullInt64
 	err := s.db.QueryRowContext(ctx, query,
 		book.OpenLibraryEditionID,
 		book.Title,
@@ -145,12 +164,14 @@ func (s *Store) CreateBook(ctx context.Context, book models.Book) (models.Book, 
 		&genreID,
 		&storedTotalPages,
 		&created.PagesRead,
+		&storedPalOrder,
 		&created.CreatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return models.Book{}, ErrBookExists
 	}
 	created.GenreID = nullableID(genreID)
+	created.PalOrder = nullableInt(storedPalOrder)
 	created.TotalPages = nullableInt(storedTotalPages)
 	return created, err
 }
@@ -166,7 +187,7 @@ func (s *Store) SearchBooksByTitle(ctx context.Context, query string) ([]models.
 
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT b.id, b.openlibrary_edition_id, b.title, b.author, b.cover_url,
-			b.is_next_pal, b.reading_status, g.id, g.name, b.total_pages, b.pages_read, b.created_at
+			b.is_next_pal, b.reading_status, g.id, g.name, b.total_pages, b.pages_read, b.pal_order, b.created_at
 		FROM books b
 		LEFT JOIN genres g ON g.id = b.genre_id
 		WHERE LOWER(b.title) LIKE '%' || LOWER(?) || '%'
@@ -200,7 +221,7 @@ func (s *Store) ListBooksFiltered(ctx context.Context, genreID *int64, status mo
 	}
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT b.id, b.openlibrary_edition_id, b.title, b.author, b.cover_url,
-			b.is_next_pal, b.reading_status, g.id, g.name, b.total_pages, b.pages_read, b.created_at
+			b.is_next_pal, b.reading_status, g.id, g.name, b.total_pages, b.pages_read, b.pal_order, b.created_at
 		FROM books b
 		LEFT JOIN genres g ON g.id = b.genre_id
 		WHERE (? = 0 OR b.genre_id = ?)
@@ -251,13 +272,16 @@ func (s *Store) ListGenres(ctx context.Context) ([]models.Genre, error) {
 func (s *Store) ToggleNextPal(ctx context.Context, id int64) (models.Book, error) {
 	const query = `
 		UPDATE books
-		SET is_next_pal = CASE is_next_pal WHEN 1 THEN 0 ELSE 1 END
+		SET is_next_pal = CASE is_next_pal WHEN 1 THEN 0 ELSE 1 END,
+			pal_order = CASE WHEN is_next_pal = 1 THEN NULL
+				ELSE (SELECT COALESCE(MAX(pal_order), -1) + 1 FROM books WHERE is_next_pal = 1)
+			END
 		WHERE id = ?
-		RETURNING id, openlibrary_edition_id, title, author, cover_url, is_next_pal, reading_status, genre_id, total_pages, pages_read, created_at
+		RETURNING id, openlibrary_edition_id, title, author, cover_url, is_next_pal, reading_status, genre_id, total_pages, pages_read, pal_order, created_at
 	`
 
 	var book models.Book
-	var genreID, totalPages sql.NullInt64
+	var genreID, totalPages, palOrder sql.NullInt64
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&book.ID,
 		&book.OpenLibraryEditionID,
@@ -269,9 +293,11 @@ func (s *Store) ToggleNextPal(ctx context.Context, id int64) (models.Book, error
 		&genreID,
 		&totalPages,
 		&book.PagesRead,
+		&palOrder,
 		&book.CreatedAt,
 	)
 	book.GenreID = nullableID(genreID)
+	book.PalOrder = nullableInt(palOrder)
 	book.TotalPages = nullableInt(totalPages)
 	return book, err
 }
@@ -284,14 +310,15 @@ func (s *Store) UpdateReadingStatus(ctx context.Context, id int64, status models
 	const query = `
 		UPDATE books
 		SET reading_status = ?,
-			is_next_pal = CASE WHEN ? = 'finished' THEN 0 ELSE is_next_pal END
+			is_next_pal = CASE WHEN ? = 'finished' THEN 0 ELSE is_next_pal END,
+			pal_order = CASE WHEN ? = 'finished' THEN NULL ELSE pal_order END
 		WHERE id = ?
-		RETURNING id, openlibrary_edition_id, title, author, cover_url, is_next_pal, reading_status, genre_id, total_pages, pages_read, created_at
+		RETURNING id, openlibrary_edition_id, title, author, cover_url, is_next_pal, reading_status, genre_id, total_pages, pages_read, pal_order, created_at
 	`
 
 	var book models.Book
-	var genreID, totalPages sql.NullInt64
-	err := s.db.QueryRowContext(ctx, query, status, status, id).Scan(
+	var genreID, totalPages, palOrder sql.NullInt64
+	err := s.db.QueryRowContext(ctx, query, status, status, status, id).Scan(
 		&book.ID,
 		&book.OpenLibraryEditionID,
 		&book.Title,
@@ -302,9 +329,11 @@ func (s *Store) UpdateReadingStatus(ctx context.Context, id int64, status models
 		&genreID,
 		&totalPages,
 		&book.PagesRead,
+		&palOrder,
 		&book.CreatedAt,
 	)
 	book.GenreID = nullableID(genreID)
+	book.PalOrder = nullableInt(palOrder)
 	book.TotalPages = nullableInt(totalPages)
 	return book, err
 }
@@ -322,11 +351,11 @@ func (s *Store) UpdateBookProgress(ctx context.Context, id int64, pagesRead int,
 		UPDATE books
 		SET pages_read = ?, total_pages = ?
 		WHERE id = ?
-		RETURNING id, openlibrary_edition_id, title, author, cover_url, is_next_pal, reading_status, genre_id, total_pages, pages_read, created_at
+		RETURNING id, openlibrary_edition_id, title, author, cover_url, is_next_pal, reading_status, genre_id, total_pages, pages_read, pal_order, created_at
 	`
 
 	var book models.Book
-	var genreID, storedTotalPages sql.NullInt64
+	var genreID, storedTotalPages, palOrder sql.NullInt64
 	err := s.db.QueryRowContext(ctx, query, pagesRead, totalPagesValue, id).Scan(
 		&book.ID,
 		&book.OpenLibraryEditionID,
@@ -338,11 +367,69 @@ func (s *Store) UpdateBookProgress(ctx context.Context, id int64, pagesRead int,
 		&genreID,
 		&storedTotalPages,
 		&book.PagesRead,
+		&palOrder,
 		&book.CreatedAt,
 	)
 	book.GenreID = nullableID(genreID)
+	book.PalOrder = nullableInt(palOrder)
 	book.TotalPages = nullableInt(storedTotalPages)
 	return book, err
+}
+
+func (s *Store) ReorderNextPal(ctx context.Context, ids []int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.QueryContext(ctx, `
+		SELECT id
+		FROM books
+		WHERE is_next_pal = 1
+		ORDER BY pal_order IS NULL, pal_order, id
+	`)
+	if err != nil {
+		return err
+	}
+
+	current := make(map[int64]struct{})
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return err
+		}
+		current[id] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+
+	if len(ids) != len(current) {
+		return ErrInvalidPalOrder
+	}
+
+	seen := make(map[int64]struct{}, len(ids))
+	for index, id := range ids {
+		if _, exists := current[id]; !exists {
+			return ErrInvalidPalOrder
+		}
+		if _, duplicate := seen[id]; duplicate {
+			return ErrInvalidPalOrder
+		}
+		seen[id] = struct{}{}
+
+		if _, err := tx.ExecContext(ctx, `UPDATE books SET pal_order = ? WHERE id = ? AND is_next_pal = 1`, index, id); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
 
 func (s *Store) UpdateBookGenre(ctx context.Context, id int64, genreID *int64) error {
@@ -390,7 +477,7 @@ func (s *Store) DeleteBook(ctx context.Context, id int64) error {
 
 func scanBook(scanner interface{ Scan(...any) error }) (models.Book, error) {
 	var book models.Book
-	var genreID, totalPages sql.NullInt64
+	var genreID, totalPages, palOrder sql.NullInt64
 	var genreName sql.NullString
 	err := scanner.Scan(
 		&book.ID,
@@ -404,9 +491,11 @@ func scanBook(scanner interface{ Scan(...any) error }) (models.Book, error) {
 		&genreName,
 		&totalPages,
 		&book.PagesRead,
+		&palOrder,
 		&book.CreatedAt,
 	)
 	book.GenreID = nullableID(genreID)
+	book.PalOrder = nullableInt(palOrder)
 	book.TotalPages = nullableInt(totalPages)
 	if genreName.Valid {
 		book.GenreName = genreName.String

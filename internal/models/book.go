@@ -59,6 +59,7 @@ type Book struct {
 	TotalPages           *int
 	PagesRead            int
 	IsNextPal            bool
+	PalOrder             *int
 	CreatedAt            time.Time
 }
 
