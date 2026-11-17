@@ -75,3 +75,51 @@ func TestBookProgressMigrationAndUpdate(t *testing.T) {
 		t.Fatalf("unexpected listed books: %+v", books)
 	}
 }
+
+func TestSearchBooksByTitle(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	db.SetMaxOpenConns(1)
+
+	library := New(db)
+	if err := library.Init(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = library.CreateBook(ctx, models.Book{
+		OpenLibraryEditionID: "OL1M",
+		Title:                "Le Petit Prince",
+		Author:               "Antoine de Saint-Exupéry",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = library.CreateBook(ctx, models.Book{
+		OpenLibraryEditionID: "OL2M",
+		Title:                "Germinal",
+		Author:               "Émile Zola",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	books, err := library.SearchBooksByTitle(ctx, "petit")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(books) != 1 || books[0].Title != "Le Petit Prince" {
+		t.Fatalf("unexpected title search results: %+v", books)
+	}
+
+	books, err = library.SearchBooksByTitle(ctx, "Zola")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(books) != 0 {
+		t.Fatalf("author matched title search: %+v", books)
+	}
+}

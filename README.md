@@ -7,6 +7,7 @@ PAL helps you search for books, add them to your library, organize them by genre
 ## Features
 
 - Search through Open Library or Google Books
+- Find existing library books by title before searching external providers
 - Add books with title, author, cover
 - Add genres and filter the library by genre or status
 - Mark books as part of the PAL

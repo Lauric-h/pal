@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 
 	"pal/internal/models"
 
@@ -156,6 +157,36 @@ func (s *Store) CreateBook(ctx context.Context, book models.Book) (models.Book, 
 
 func (s *Store) ListBooks(ctx context.Context) ([]models.Book, error) {
 	return s.ListBooksFiltered(ctx, nil, "")
+}
+func (s *Store) SearchBooksByTitle(ctx context.Context, query string) ([]models.Book, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return nil, nil
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT b.id, b.openlibrary_edition_id, b.title, b.author, b.cover_url,
+			b.is_next_pal, b.reading_status, g.id, g.name, b.total_pages, b.pages_read, b.created_at
+		FROM books b
+		LEFT JOIN genres g ON g.id = b.genre_id
+		WHERE LOWER(b.title) LIKE '%' || LOWER(?) || '%'
+		ORDER BY LOWER(b.title) COLLATE NOCASE ASC, b.id ASC
+		LIMIT 10
+	`, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	books := make([]models.Book, 0)
+	for rows.Next() {
+		book, err := scanBook(rows)
+		if err != nil {
+			return nil, err
+		}
+		books = append(books, book)
+	}
+	return books, rows.Err()
 }
 
 func (s *Store) ListBooksFiltered(ctx context.Context, genreID *int64, status models.ReadingStatus) ([]models.Book, error) {

@@ -1,7 +1,18 @@
 {{ define "search-results" -}}
-{{ if .Error }}
-    <p role="alert">{{ .Error }}</p>
-{{ else if .Results }}
+{{ if .Existing }}
+    <h2>Déjà dans la bibliothèque</h2>
+    {{ range .Existing }}
+    <a class="search-result search-result-existing" href="/library#book-{{ .ID }}">
+       {{ if .CoverURL }}<img src="{{ .CoverURL }}" alt="" loading="lazy" width="80">{{ else }}<div class="book-cover book-cover-empty"><svg class="icon" aria-hidden="true"><use href="#icon-book"></use></svg></div>{{ end }}
+       <div>
+          <h3>{{ .Title }}</h3>
+          {{ if .Author }}<p>{{ .Author }}</p>{{ end }}
+          <p>Voir dans la bibliothèque</p>
+       </div>
+    </a>
+    {{ end }}
+{{ end }}
+{{ if .Results }}
     <h2>Résultats</h2>
     {{ range .Results }}
     <article class="search-result">
@@ -20,7 +31,10 @@
        </form>
     </article>
     {{ end }}
-{{ else }}
-    <p>Aucun résultat.</p>
+{{ end }}
+{{ if and (not .Existing) (not .Results) }}
+    {{ if .Error }}<p role="alert">{{ .Error }}</p>{{ else }}<p>Aucun résultat.</p>{{ end }}
+{{ else if .Error }}
+    <p role="alert">{{ .Error }}</p>
 {{ end }}
 {{ end }}
