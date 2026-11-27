@@ -123,3 +123,51 @@ func TestSearchBooksByTitle(t *testing.T) {
 		t.Fatalf("author matched title search: %+v", books)
 	}
 }
+
+func TestReorderNextPal(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	db.SetMaxOpenConns(1)
+
+	library := New(db)
+	if err := library.Init(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	created := make([]models.Book, 3)
+	for index := range created {
+		created[index], err = library.CreateBook(ctx, models.Book{
+			OpenLibraryEditionID: "order-" + string(rune('1'+index)),
+			Title:                "Book " + string(rune('1'+index)),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := library.ToggleNextPal(ctx, created[index].ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := library.ReorderNextPal(ctx, []int64{created[0].ID, created[2].ID, created[1].ID}); err != nil {
+		t.Fatal(err)
+	}
+
+	books, err := library.ListBooks(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	orders := make(map[int64]int)
+	for _, book := range books {
+		if book.PalOrder == nil {
+			t.Fatalf("book %d has no PAL order", book.ID)
+		}
+		orders[book.ID] = *book.PalOrder
+	}
+	if orders[created[0].ID] != 0 || orders[created[2].ID] != 1 || orders[created[1].ID] != 2 {
+		t.Fatalf("unexpected PAL order: %+v", orders)
+	}
+}

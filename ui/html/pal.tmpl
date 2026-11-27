@@ -1,16 +1,103 @@
+{{ define "pal-book-details" -}}
+<div class="pal-book-meta">
+	<label><span class="sr-only">Statut de {{ .Book.Title }}</span><select class="pal-status-select status-{{ .Book.ReadingStatus }}" name="status" hx-post="/books/{{ .Book.ID }}/status" hx-trigger="change" hx-on::after-request="window.location.reload()">
+		<option value="in_progress"{{ if eq .Book.ReadingStatus "in_progress" }} selected{{ end }}>En cours</option><option value="to_read"{{ if eq .Book.ReadingStatus "to_read" }} selected{{ end }}>À lire</option><option value="to_buy"{{ if eq .Book.ReadingStatus "to_buy" }} selected{{ end }}>À acheter</option><option value="finished"{{ if eq .Book.ReadingStatus "finished" }} selected{{ end }}>Terminé</option>
+	</select></label>
+	<label><span class="sr-only">Genre de {{ .Book.Title }}</span><select class="pal-genre-select" name="genre_id" hx-post="/books/{{ .Book.ID }}/genre" hx-trigger="change">
+		<option value=""{{ if eq .SelectedGenreID 0 }} selected{{ end }}>Aucun genre</option>{{ range .Genres }}<option value="{{ .ID }}"{{ if eq $.SelectedGenreID .ID }} selected{{ end }}>{{ .Name }}</option>{{ end }}
+	</select></label>
+</div>
+{{ end }}
+
 {{ define "pal" -}}
 {{ template "layout-start" . }}
-<header class="page-header">
-	<h1>PAL <span>— Pile à lire</span></h1>
-</header>
+<div class="pal-page" id="pal-page">
+	<header class="pal-header">
+		<div>
+			<h1>Pile à lire</h1>
+			<p>Votre itinéraire de lecture, dans l'ordre.</p>
+		</div>
+		{{ if .NextPalCount }}<div class="pal-count"><strong>{{ .NextPalCount }}</strong><span>à venir</span></div>{{ end }}
+	</header>
 
-{{ range .NextPalSections }}
-<section class="status-section" aria-labelledby="pal-{{ .Class }}">
-	<h2 id="pal-{{ .Class }}" class="status-heading {{ .Class }}">{{ .Label }} <span class="count">{{ len .Books }}</span></h2>
-	{{ range .Books }}{{ template "book-card" . }}{{ end }}
-</section>
-{{ else }}
-<div class="empty-state"><div class="empty-icon" aria-hidden="true">☷</div><p>Aucun livre dans votre PAL.</p></div>
-{{ end }}
+	{{ if or .CurrentPal .PalQueue }}
+		{{ if .CurrentPal }}
+		<section class="pal-current-card" data-pal-id="{{ .CurrentPal.Book.ID }}" aria-labelledby="pal-current-title">
+			<div class="pal-current-accent"></div>
+			<div class="pal-current-label"><span class="pal-live-dot"></span>Lecture en cours</div>
+			<div class="pal-current-content">
+				{{ if .CurrentPal.Book.CoverURL }}<img class="pal-cover pal-cover-large" src="{{ .CurrentPal.Book.CoverURL }}" alt="" loading="lazy" width="68">{{ else }}<div class="pal-cover pal-cover-large pal-cover-empty" aria-hidden="true"><svg class="icon"><use href="#icon-book"></use></svg></div>{{ end }}
+				<div class="pal-book-copy"><h2 id="pal-current-title">{{ .CurrentPal.Book.Title }}</h2>{{ if .CurrentPal.Book.Author }}<p>{{ .CurrentPal.Book.Author }}</p>{{ end }}{{ template "book-progress" .CurrentPal }}</div>
+				{{ template "pal-book-details" .CurrentPal }}
+			</div>
+		</section>
+		{{ end }}
+
+		<section class="pal-queue-section" aria-labelledby="pal-order-title">
+			<div class="pal-section-heading">
+				<div><span class="pal-eyebrow">Prochainement</span><h2 id="pal-order-title">Ordre de lecture</h2></div>
+				{{ if .PalQueue }}<span class="pal-drag-hint"><svg class="pal-grip-icon" aria-hidden="true"><use href="#icon-grip"></use></svg>Glissez pour réordonner</span>{{ end }}
+			</div>
+			{{ if .PalQueue }}
+			<div class="pal-timeline" id="pal-timeline">
+				{{ range .PalQueue }}
+				<div class="pal-timeline-row" data-pal-id="{{ .Book.ID }}" draggable="true">
+					<div class="pal-timeline-marker"><span>{{ printf "%02d" .PalPosition }}</span></div>
+					<article class="pal-queue-card">
+						<button class="pal-grip" type="button" aria-label="Déplacer {{ .Book.Title }}"><svg class="pal-grip-icon" aria-hidden="true"><use href="#icon-grip"></use></svg></button>
+						{{ if .Book.CoverURL }}<img class="pal-cover" src="{{ .Book.CoverURL }}" alt="" loading="lazy" width="42">{{ else }}<div class="pal-cover pal-cover-empty" aria-hidden="true"><svg class="icon"><use href="#icon-book"></use></svg></div>{{ end }}
+						<div class="pal-book-copy"><h3>{{ .Book.Title }}</h3>{{ if .Book.Author }}<p>{{ .Book.Author }}</p>{{ end }}</div>
+						{{ template "pal-book-details" . }}
+						<div class="pal-order-controls"><button type="button" data-pal-move="up" aria-label="Monter {{ .Book.Title }}">↑</button><button type="button" data-pal-move="down" aria-label="Descendre {{ .Book.Title }}">↓</button></div>
+					</article>
+				</div>
+				{{ end }}
+			</div>
+			{{ else }}<div class="pal-queue-empty">Aucun prochain livre pour le moment.</div>{{ end }}
+		</section>
+	{{ else }}
+		<div class="empty-state"><div class="empty-icon" aria-hidden="true">☷</div><p>Aucun livre dans votre PAL.</p></div>
+	{{ end }}
+</div>
+
+<script>
+(function () {
+	var timeline = document.getElementById("pal-timeline");
+	if (!timeline) return;
+	var dragged;
+	function orderedIDs() {
+		return Array.from(document.querySelectorAll("[data-pal-id]"), function (item) { return item.dataset.palId; });
+	}
+	function saveOrder(ids) {
+		fetch("/pal/order", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "order=" + encodeURIComponent(ids.join(",")) }).then(function (response) {
+			if (!response.ok) throw new Error("order update failed");
+			window.location.reload();
+		});
+	}
+	timeline.querySelectorAll(".pal-timeline-row").forEach(function (row) {
+		row.addEventListener("dragstart", function () { dragged = row; row.classList.add("is-dragging"); });
+		row.addEventListener("dragend", function () { row.classList.remove("is-dragging"); dragged = null; });
+		row.addEventListener("dragover", function (event) { event.preventDefault(); row.classList.add("is-drag-over"); });
+		row.addEventListener("dragleave", function () { row.classList.remove("is-drag-over"); });
+		row.addEventListener("drop", function (event) {
+			event.preventDefault();
+			row.classList.remove("is-drag-over");
+			if (!dragged || dragged === row) return;
+			var rows = Array.from(timeline.querySelectorAll(".pal-timeline-row"));
+			var from = rows.indexOf(dragged), to = rows.indexOf(row);
+			if (from < to) row.after(dragged); else row.before(dragged);
+			saveOrder(orderedIDs());
+		});
+	});
+	timeline.addEventListener("click", function (event) {
+		var button = event.target.closest("[data-pal-move]");
+		if (!button) return;
+		var row = button.closest(".pal-timeline-row"), rows = Array.from(timeline.querySelectorAll(".pal-timeline-row")), index = rows.indexOf(row), next = index + (button.dataset.palMove === "up" ? -1 : 1);
+		if (next < 0 || next >= rows.length) return;
+		if (next < index) rows[next].before(row); else rows[next].after(row);
+		saveOrder(orderedIDs());
+	});
+})();
+</script>
 {{ template "layout-end" . }}
 {{ end }}

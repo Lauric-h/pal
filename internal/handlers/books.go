@@ -24,7 +24,8 @@ type pageData struct {
 	GenreFilterName string
 	StatusFilter    models.ReadingStatus
 	NextPal         []bookCardData
-	NextPalSections []bookSection
+	CurrentPal      *bookCardData
+	PalQueue        []bookCardData
 	NextPalCount    int
 	Books           []bookCardData
 	Sections        []bookSection
@@ -59,6 +60,7 @@ type bookCardData struct {
 	Genres          []models.Genre
 	SelectedGenreID int64
 	ProgressLabel   string
+	PalPosition     int
 }
 
 var bookSectionDefinitions = []struct {
@@ -84,9 +86,36 @@ func makePageData(books []models.Book, genres []models.Genre) pageData {
 		}
 	}
 
+	sort.SliceStable(data.NextPal, func(i, j int) bool {
+		left, right := data.NextPal[i].Book, data.NextPal[j].Book
+		if left.PalOrder != nil && right.PalOrder != nil && *left.PalOrder != *right.PalOrder {
+			return *left.PalOrder < *right.PalOrder
+		}
+		if left.PalOrder != nil && right.PalOrder == nil {
+			return true
+		}
+		if left.PalOrder == nil && right.PalOrder != nil {
+			return false
+		}
+		if !left.CreatedAt.Equal(right.CreatedAt) {
+			return left.CreatedAt.Before(right.CreatedAt)
+		}
+		return left.ID < right.ID
+	})
+
+	if len(data.NextPal) > 0 && data.NextPal[0].Book.ReadingStatus == models.StatusInProgress {
+		data.CurrentPal = &data.NextPal[0]
+		data.PalQueue = append(data.PalQueue, data.NextPal[1:]...)
+	} else {
+		data.PalQueue = append(data.PalQueue, data.NextPal...)
+	}
+	data.NextPalCount = len(data.PalQueue)
+
+	for index := range data.PalQueue {
+		data.PalQueue[index].PalPosition = index + 1
+	}
+
 	data.Sections = makeBookSections(data.Books)
-	data.NextPalSections = makeBookSections(data.NextPal)
-	data.NextPalCount = len(data.NextPal)
 
 	return data
 }
@@ -325,6 +354,40 @@ func (a *Application) pal(w http.ResponseWriter, r *http.Request) {
 	a.render(w, http.StatusOK, "pal", data)
 }
 
+func (a *Application) reorderPal(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "ordre invalide", http.StatusBadRequest)
+		return
+	}
+
+	rawIDs := strings.Split(strings.TrimSpace(r.FormValue("order")), ",")
+	if len(rawIDs) == 1 && rawIDs[0] == "" {
+		http.Error(w, "ordre invalide", http.StatusBadRequest)
+		return
+	}
+
+	ids := make([]int64, 0, len(rawIDs))
+	for _, rawID := range rawIDs {
+		id, err := strconv.ParseInt(strings.TrimSpace(rawID), 10, 64)
+		if err != nil || id < 1 {
+			http.Error(w, "ordre invalide", http.StatusBadRequest)
+			return
+		}
+		ids = append(ids, id)
+	}
+
+	if err := a.Store.ReorderNextPal(r.Context(), ids); errors.Is(err, store.ErrInvalidPalOrder) {
+		http.Error(w, "ordre invalide", http.StatusBadRequest)
+		return
+	} else if err != nil {
+		http.Error(w, "impossible de modifier l'ordre", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Refresh", "true")
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (a *Application) createBook(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "requête invalide", http.StatusBadRequest)
@@ -510,7 +573,6 @@ func (a *Application) updateProgress(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("HX-Refresh", "true")
 	w.WriteHeader(http.StatusOK)
 }
-
 
 func (a *Application) deleteBook(w http.ResponseWriter, r *http.Request) {
 	id, err := bookID(r)
