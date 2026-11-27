@@ -296,13 +296,13 @@
 			.pal-current-card { margin-bottom: 42px; }
 			.pal-current-label { font-size: 11px; padding: 14px 18px; }
 			.pal-current-content { gap: 14px; grid-template-columns: 58px minmax(0, 1fr); padding: 18px; }
-			.pal-cover-large { height: 86px; width: 58px; }
+			.pal-current-content .pal-cover { display: flex; }
 			.pal-book-copy h2 { font-size: 19px; }
 			.pal-book-copy h3 { font-size: 16px; }
 			.pal-book-copy p { font-size: 14px; }
 			.pal-current-content > .pal-book-meta { align-items: center; grid-column: 1 / -1; justify-content: flex-start; }
-			.pal-book-meta { gap: 6px; min-width: 0; }
-			.pal-book-meta select { font-size: 13px; min-height: 38px; max-width: 100%; min-width: 0; }
+			.pal-book-meta { display: grid; gap: 6px; grid-template-columns: max-content minmax(0, 1fr); min-width: 0; width: 100%; }
+			.pal-book-meta select { font-size: 13px; min-height: 38px; max-width: 100%; min-width: 0; width: 100%; }
 			.pal-section-heading { margin-left: 42px; }
 			.pal-section-heading h2 { font-size: 20px; }
 			.pal-drag-hint { display: none; }
@@ -310,11 +310,11 @@
 			.pal-timeline-row { gap: 9px; grid-template-columns: 33px minmax(0, 1fr); }
 			.pal-timeline-marker { width: 33px; }
 			.pal-timeline-marker span { font-size: 11px; height: 29px; width: 29px; }
-			.pal-queue-card { gap: 10px; grid-template-columns: 40px minmax(0, 1fr) 26px; min-height: 92px; padding: 10px; }
-			.pal-queue-card > .pal-book-meta { grid-column: 1 / -1; justify-content: flex-start; min-width: 0; padding-left: 50px; width: 100%; }
-			.pal-queue-card .pal-genre-select { max-width: 135px; width: 135px; }
-			.pal-grip { display: none; }
+			.pal-queue-card { align-items: center; gap: 10px; grid-template-columns: 58px minmax(0, 1fr) 26px; min-height: 126px; padding: 10px; }
+			.pal-queue-card .pal-cover { display: block; height: 84px; width: 58px; }
+			.pal-queue-card > .pal-book-meta { grid-column: 2 / 4; justify-content: flex-start; min-width: 0; padding-left: 0; width: 100%; }
 			.pal-order-controls { grid-column: 3; grid-row: 1; opacity: 1; }
+			.pal-grip { display: none; }
 			.pal-queue-empty { margin-left: 42px; }
 		}
 	</style>
