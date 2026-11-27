@@ -8,6 +8,7 @@ services:
       PORT: "8080"
       OPENLIBRARY_USER_AGENT: "pal/1.0 (personal library)"
       GOOGLE_BOOKS_API_KEY: "${GOOGLE_BOOKS_API_KEY:-}"
+      HARDCOVER_API_KEY: "${HARDCOVER_API_KEY:-}"
     volumes:
       - ./data:/data
     restart: unless-stopped

@@ -6,13 +6,14 @@ PAL helps you search for books, add them to your library, organize them by genre
 
 ## Features
 
-- Search through Open Library or Google Books
+- Search through Open Library, Google Books, or Hardcover
 - Find existing library books by title before searching external providers
 - Add books with title, author, cover
 - Add genres and filter the library by genre or status
 - Mark books as part of the PAL
 - Set PAL reading order with a responsive timeline
 - Track reading progress with pages read, total pages, and percentage
+- Track reading start and finish dates
 - Persist data in SQLite
 - Dark and light themes
 - Responsive server-rendered UI with HTMX interactions
@@ -63,6 +64,17 @@ docker compose up -d
 
 The Compose file passes the key to the container without storing it in the repository.
 
+### Optional Hardcover API key
+
+Hardcover requires an API key. Create one in [Hardcover account settings](https://hardcover.app/account/api), then export it before starting Compose:
+
+```bash
+export HARDCOVER_API_KEY="your-api-key"
+docker compose up -d
+```
+
+The Compose file passes the key to the container without storing it in the repository.
+
 ## Run locally with Go
 
 Requirements:
@@ -79,12 +91,11 @@ Open [http://localhost:8080](http://localhost:8080).
 
 Configuration is provided through environment variables:
 
-| Variable                 | Default                      | Purpose                         |
-| ------------------------ | ---------------------------- | ------------------------------- |
-| `PORT`                   | `8080`                       | HTTP server port                |
-| `DB_PATH`                | `library.db`                 | SQLite database path            |
+| `PORT`                   | `8080`                       | HTTP server port             |
+| `DB_PATH`                | `library.db`                 | SQLite database path         |
 | `OPENLIBRARY_USER_AGENT` | `pal/1.0 (personal library)` | User-Agent sent to Open Library |
-| `GOOGLE_BOOKS_API_KEY`   | empty                        | Optional Google Books API key   |
+| `GOOGLE_BOOKS_API_KEY`   | empty                        | Optional Google Books API key |
+| `HARDCOVER_API_KEY`      | empty                        | Optional Hardcover API key    |
 
 Example:
 
@@ -107,6 +118,7 @@ internal/models/         Domain models and reading statuses
 internal/store/          SQLite schema and persistence
 internal/openlibrary/    Open Library client
 internal/googlebooks/    Google Books client
+internal/hardcover/      Hardcover client
 ui/html/                 Server-rendered HTML templates
 Dockerfile               Multi-stage production image
 docker-compose.yml       Self-hosting configuration

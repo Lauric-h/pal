@@ -31,6 +31,11 @@ func (a *Application) searchProvider(name string) (bookSearcher, string, bool) {
 			return nil, "Google Books", true
 		}
 		return a.GoogleBooks, "Google Books", true
+	case "hardcover":
+		if a.Hardcover == nil {
+			return nil, "Hardcover", true
+		}
+		return a.Hardcover, "Hardcover", true
 	default:
 		return nil, "", false
 	}

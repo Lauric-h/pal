@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
+	"time"
 
 	"pal/internal/models"
 
@@ -53,6 +54,14 @@ func TestBookProgressMigrationAndUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	startedAt := time.Date(2026, time.January, 3, 0, 0, 0, 0, time.UTC)
+	finishedAt := time.Date(2026, time.January, 10, 0, 0, 0, 0, time.UTC)
+	if err := library.UpdateBookReadingDates(ctx, created.ID, &startedAt, &finishedAt); err != nil {
+		t.Fatal(err)
+	}
+	if err := library.UpdateBookReadingDates(ctx, created.ID, &finishedAt, &startedAt); !errors.Is(err, ErrInvalidReadingDates) {
+		t.Fatalf("expected invalid reading dates, got %v", err)
+	}
 
 	totalPages := 300
 	updated, err := library.UpdateBookProgress(ctx, created.ID, 42, &totalPages)
@@ -71,7 +80,9 @@ func TestBookProgressMigrationAndUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(books) != 1 || books[0].PagesRead != 42 || books[0].TotalPagesValue() != 300 {
+	if len(books) != 1 || books[0].PagesRead != 42 || books[0].TotalPagesValue() != 300 ||
+		books[0].StartedAt == nil || !books[0].StartedAt.Equal(startedAt) ||
+		books[0].FinishedAt == nil || !books[0].FinishedAt.Equal(finishedAt) {
 		t.Fatalf("unexpected listed books: %+v", books)
 	}
 }

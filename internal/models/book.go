@@ -60,6 +60,8 @@ type Book struct {
 	PagesRead            int
 	IsNextPal            bool
 	PalOrder             *int
+	StartedAt            *time.Time
+	FinishedAt           *time.Time
 	CreatedAt            time.Time
 }
 
@@ -68,4 +70,17 @@ func (book Book) TotalPagesValue() int {
 		return 0
 	}
 	return *book.TotalPages
+}
+func (book Book) StartedDateValue() string {
+	if book.StartedAt == nil {
+		return ""
+	}
+	return book.StartedAt.Format("2006-01-02")
+}
+
+func (book Book) FinishedDateValue() string {
+	if book.FinishedAt == nil {
+		return ""
+	}
+	return book.FinishedAt.Format("2006-01-02")
 }

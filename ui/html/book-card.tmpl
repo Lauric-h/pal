@@ -37,6 +37,7 @@
           </label>
        </div>
        {{ template "book-progress" . }}
+       {{ template "book-dates" . }}
     </div>
     <div class="card-actions">
        {{ template "next-pal-button" .Book }}
@@ -68,6 +69,23 @@
        </details>
     </div>
 {{ end }}
+{{ end }}
+
+{{ define "book-dates" -}}
+<details class="book-dates">
+    <summary>Dates de lecture</summary>
+    <form class="book-dates-form" hx-post="/books/{{ .Book.ID }}/dates">
+       <label>
+          <span>Début</span>
+          <input type="date" name="started_at" value="{{ .Book.StartedDateValue }}">
+       </label>
+       <label>
+          <span>Fin</span>
+          <input type="date" name="finished_at" value="{{ .Book.FinishedDateValue }}">
+       </label>
+       <button type="submit">Enregistrer</button>
+    </form>
+</details>
 {{ end }}
 
 {{ define "book-row" -}}
@@ -113,6 +131,7 @@
     </div>
     <div class="book-row-progress">
        {{ template "book-progress" . }}
+       {{ template "book-dates" . }}
     </div>
     <div class="book-row-actions">
        {{ template "next-pal-button" .Book }}

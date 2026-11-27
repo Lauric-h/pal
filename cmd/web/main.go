@@ -11,6 +11,7 @@ import (
 
 	"pal/internal/googlebooks"
 	"pal/internal/handlers"
+	"pal/internal/hardcover"
 	"pal/internal/openlibrary"
 	"pal/internal/store"
 
@@ -52,10 +53,16 @@ func main() {
 		log.Fatal(err)
 	}
 
+	var hardcoverClient *hardcover.Client
+	if token := os.Getenv("HARDCOVER_API_KEY"); token != "" {
+		hardcoverClient = hardcover.New(token)
+	}
+
 	app := &handlers.Application{
 		Store:       books,
 		OpenLibrary: openlibrary.New(os.Getenv("OPENLIBRARY_USER_AGENT")),
 		GoogleBooks: googlebooks.New(os.Getenv("GOOGLE_BOOKS_API_KEY")),
+		Hardcover:   hardcoverClient,
 		Templates:   templates,
 	}
 

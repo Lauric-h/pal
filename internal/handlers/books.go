@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"pal/internal/models"
@@ -413,7 +414,9 @@ func (a *Application) createBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !strings.HasPrefix(book.OpenLibraryEditionID, "google:") && a.OpenLibrary != nil {
+	if !strings.HasPrefix(book.OpenLibraryEditionID, "google:") &&
+		!strings.HasPrefix(book.OpenLibraryEditionID, "hardcover:") &&
+		a.OpenLibrary != nil {
 		if pages, lookupErr := a.OpenLibrary.EditionPages(r.Context(), book.OpenLibraryEditionID); lookupErr == nil && pages != nil {
 			book.TotalPages = pages
 		}
@@ -574,6 +577,51 @@ func (a *Application) updateProgress(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (a *Application) updateReadingDates(w http.ResponseWriter, r *http.Request) {
+	id, err := bookID(r)
+	if err != nil {
+		http.Error(w, "identifiant invalide", http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "requête invalide", http.StatusBadRequest)
+		return
+	}
+
+	startedAt, err := optionalDate(strings.TrimSpace(r.FormValue("started_at")))
+	if err != nil {
+		http.Error(w, "date de début invalide", http.StatusBadRequest)
+		return
+	}
+	finishedAt, err := optionalDate(strings.TrimSpace(r.FormValue("finished_at")))
+	if err != nil {
+		http.Error(w, "date de fin invalide", http.StatusBadRequest)
+		return
+	}
+	if startedAt != nil && finishedAt != nil && finishedAt.Before(*startedAt) {
+		http.Error(w, "dates de lecture invalides", http.StatusBadRequest)
+		return
+	}
+
+	err = a.Store.UpdateBookReadingDates(r.Context(), id, startedAt, finishedAt)
+	if errors.Is(err, store.ErrInvalidReadingDates) {
+		http.Error(w, "dates de lecture invalides", http.StatusBadRequest)
+		return
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "livre introuvable", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, "impossible de modifier les dates de lecture", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Refresh", "true")
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (a *Application) deleteBook(w http.ResponseWriter, r *http.Request) {
 	id, err := bookID(r)
 	if err != nil {
@@ -624,7 +672,6 @@ func nonNegativeInt(value string) (int, error) {
 	}
 	return result, nil
 }
-
 func optionalPositiveInt(value string) (*int, error) {
 	if value == "" {
 		return nil, nil
@@ -632,6 +679,17 @@ func optionalPositiveInt(value string) (*int, error) {
 	result, err := strconv.Atoi(value)
 	if err != nil || result <= 0 {
 		return nil, errors.New("invalid positive integer")
+	}
+	return &result, nil
+}
+
+func optionalDate(value string) (*time.Time, error) {
+	if value == "" {
+		return nil, nil
+	}
+	result, err := time.Parse("2006-01-02", value)
+	if err != nil {
+		return nil, err
 	}
 	return &result, nil
 }

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"pal/internal/googlebooks"
+	"pal/internal/hardcover"
 	"pal/internal/openlibrary"
 	"pal/internal/store"
 )
@@ -14,6 +15,7 @@ type Application struct {
 	Store       *store.Store
 	OpenLibrary *openlibrary.Client
 	GoogleBooks *googlebooks.Client
+	Hardcover   *hardcover.Client
 	Templates   *template.Template
 }
 
@@ -29,6 +31,7 @@ func (a *Application) Routes() http.Handler {
 	mux.HandleFunc("POST /books/{id}/status", a.updateStatus)
 	mux.HandleFunc("POST /books/{id}/genre", a.updateGenre)
 	mux.HandleFunc("POST /books/{id}/progress", a.updateProgress)
+	mux.HandleFunc("POST /books/{id}/dates", a.updateReadingDates)
 	mux.HandleFunc("POST /pal/order", a.reorderPal)
 	mux.HandleFunc("DELETE /books/{id}", a.deleteBook)
 	return mux
